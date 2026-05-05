@@ -39,18 +39,54 @@ enum ViewType: String, CaseIterable, Identifiable {
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
+    let cornerRadius: CGFloat?
+    let appearanceName: NSAppearance.Name?
+    let borderWidth: CGFloat
+    let borderColor: NSColor?
+
+    init(
+        material: NSVisualEffectView.Material,
+        blendingMode: NSVisualEffectView.BlendingMode,
+        cornerRadius: CGFloat? = nil,
+        appearanceName: NSAppearance.Name? = nil,
+        borderWidth: CGFloat = 0,
+        borderColor: NSColor? = nil
+    ) {
+        self.material = material
+        self.blendingMode = blendingMode
+        self.cornerRadius = cornerRadius
+        self.appearanceName = appearanceName
+        self.borderWidth = borderWidth
+        self.borderColor = borderColor
+    }
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
-        visualEffectView.state = .active
+        configure(visualEffectView)
         return visualEffectView
     }
 
     func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
+        configure(visualEffectView)
+    }
+
+    private func configure(_ visualEffectView: NSVisualEffectView) {
         visualEffectView.material = material
         visualEffectView.blendingMode = blendingMode
+        visualEffectView.state = .active
+        visualEffectView.isEmphasized = false
+        if let appearanceName {
+            visualEffectView.appearance = NSAppearance(named: appearanceName)
+        } else {
+            visualEffectView.appearance = nil
+        }
+
+        guard let cornerRadius else { return }
+        visualEffectView.wantsLayer = true
+        visualEffectView.layer?.cornerRadius = cornerRadius
+        visualEffectView.layer?.masksToBounds = true
+        visualEffectView.layer?.borderWidth = borderWidth
+        visualEffectView.layer?.borderColor = borderColor?.cgColor
     }
 }
 
@@ -216,4 +252,3 @@ private struct SidebarItemView: View {
         .padding(.horizontal, 2)
     }
 }
-

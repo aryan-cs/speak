@@ -70,6 +70,13 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         }
     }
 
+    private var pillShape: NotchShape {
+        NotchShape(
+            topCornerRadius: displayState == .liveText ? 12 : 8,
+            bottomCornerRadius: displayState == .liveText ? 22 : 16
+        )
+    }
+
     // MARK: - Animation
 
     private let expandAnimation = Animation.spring(response: 0.42, dampingFraction: 0.80)
@@ -98,13 +105,22 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             liveTextPanel
         }
         .frame(width: pillWidth, height: pillHeight)
-        .background(Color.black)
-        .clipShape(
-            NotchShape(
-                topCornerRadius: displayState == .liveText ? 12 : 8,
-                bottomCornerRadius: displayState == .liveText ? 22 : 16
-            )
-        )
+        .background { pillBackground }
+        .clipShape(pillShape)
+    }
+
+    @ViewBuilder
+    private var pillBackground: some View {
+        ZStack {
+            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+
+            if #available(macOS 26.0, *) {
+                GlassEffectContainer {
+                    Color.clear
+                        .glassEffect(.clear, in: pillShape)
+                }
+            }
+        }
     }
 
     // MARK: - Main Row
