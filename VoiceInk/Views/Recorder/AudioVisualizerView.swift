@@ -75,13 +75,6 @@ struct ProcessingStatusDisplay: View {
     let mode: Mode
     let color: Color
 
-    private var label: String {
-        switch mode {
-        case .transcribing: return "Transcribing"
-        case .enhancing:    return "Enhancing"
-        }
-    }
-
     private var animationSpeed: Double {
         switch mode {
         case .transcribing: return 0.18
@@ -90,15 +83,7 @@ struct ProcessingStatusDisplay: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(label)
-                .foregroundColor(color)
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-
-            ProgressAnimation(color: color, animationSpeed: animationSpeed)
-        }
+        ProgressAnimation(color: color, animationSpeed: animationSpeed)
         .frame(height: 28) // matches AudioVisualizer maxHeight to prevent layout shift
     }
 }

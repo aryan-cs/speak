@@ -4,10 +4,7 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
     @EnvironmentObject var windowManager: NotchWindowManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
     @AppStorage("showLiveTextPreview") private var showLiveTextPreview = false
-    @ObservedObject private var powerModeManager = PowerModeManager.shared
-    @State private var activePopover: ActivePopoverState = .none
 
     // MARK: - Display State
 
@@ -48,8 +45,8 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     // MARK: - Layout Constants
 
-    private let recordingSideExpansion: CGFloat = 90
-    private let transcriptSideExpansion: CGFloat = 110
+    private let recordingSideExpansion: CGFloat = 36
+    private let transcriptSideExpansion: CGFloat = 64
     private let activeHeightBonus: CGFloat = 6
     private let transcriptPanelHeight: CGFloat = 57
 
@@ -71,10 +68,6 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         case .active:    return mainRowHeight
         case .liveText:  return mainRowHeight + transcriptPanelHeight
         }
-    }
-
-    private var sideExpansion: CGFloat {
-        displayState == .liveText ? transcriptSideExpansion : recordingSideExpansion
     }
 
     // MARK: - Animation
@@ -120,31 +113,12 @@ struct NotchRecorderView<S: RecorderStateProvider & ObservableObject>: View {
         ZStack {
             Color.clear
 
-            HStack(spacing: 10) {
-                RecorderPromptButton(activePopover: $activePopover, buttonSize: 20, padding: EdgeInsets())
-                RecorderPowerModeButton(activePopover: $activePopover, buttonSize: 20, padding: EdgeInsets())
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, displayState == .liveText ? 18 : 14)
-            .frame(width: sideExpansion)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .opacity(displayState != .collapsed ? 1 : 0)
-            .animation(
-                displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,
-                value: displayState
+            RecorderStatusDisplay(
+                currentState: stateProvider.recordingState,
+                audioMeter: recorder.audioMeter,
+                menuBarHeight: notchHeight
             )
-
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                RecorderStatusDisplay(
-                    currentState: stateProvider.recordingState,
-                    audioMeter: recorder.audioMeter,
-                    menuBarHeight: notchHeight
-                )
-            }
-            .padding(.trailing, displayState == .liveText ? 18 : 14)
-            .frame(width: sideExpansion)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity, alignment: .center)
             .opacity(displayState != .collapsed ? 1 : 0)
             .animation(
                 displayState != .collapsed ? expandAnimation.delay(0.09) : collapseAnimation,

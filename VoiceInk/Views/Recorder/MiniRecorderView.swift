@@ -4,15 +4,12 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
     @ObservedObject var stateProvider: S
     @ObservedObject var recorder: Recorder
     @EnvironmentObject var windowManager: MiniWindowManager
-    @EnvironmentObject private var enhancementService: AIEnhancementService
     @AppStorage("showLiveTextPreview") private var showLiveTextPreview = false
-
-    @State private var activePopover: ActivePopoverState = .none
 
     // MARK: - Layout Constants
 
     private let controlBarHeight: CGFloat = 40
-    private let compactWidth: CGFloat = 184
+    private let compactWidth: CGFloat = 112
     private let expandedWidth: CGFloat = 300
     private let compactCornerRadius: CGFloat = 20
     private let expandedCornerRadius: CGFloat = 14
@@ -26,13 +23,6 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     private var controlBar: some View {
         HStack(spacing: 0) {
-            RecorderPromptButton(
-                activePopover: $activePopover,
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.leading, 12)
-
             Spacer(minLength: 0)
 
             RecorderStatusDisplay(
@@ -41,13 +31,6 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
             )
 
             Spacer(minLength: 0)
-
-            RecorderPowerModeButton(
-                activePopover: $activePopover,
-                buttonSize: 22,
-                padding: EdgeInsets()
-            )
-            .padding(.trailing, 12)
         }
         .frame(height: controlBarHeight)
     }
