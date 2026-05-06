@@ -175,7 +175,7 @@ struct MetricsContent: View {
                     .font(.system(size: 36, design: .rounded))
                     .foregroundStyle(.white)
                  +
-                 Text(" with VoiceInk")
+                 Text(" with Speak")
                     .fontWeight(.bold)
                     .foregroundColor(.white.opacity(0.85))
                 )
@@ -213,7 +213,7 @@ struct MetricsContent: View {
                 icon: "mic.fill",
                 title: "Sessions Recorded",
                 value: "\(totalCount)",
-                detail: "VoiceInk sessions completed",
+                detail: "Speak sessions completed",
                 color: .purple
             )
 
@@ -222,7 +222,7 @@ struct MetricsContent: View {
                 title: "Words Dictated",
                 value: Formatters.formattedNumber(totalWords),
                 detail: "words generated",
-                color: Color(nsColor: .controlAccentColor)
+                color: Color.accentColor
             )
             
             MetricCard(
@@ -231,7 +231,7 @@ struct MetricsContent: View {
                 value: averageWordsPerMinute > 0
                     ? String(format: "%.1f", averageWordsPerMinute)
                     : "–",
-                detail: "VoiceInk vs. typing by hand",
+                detail: "Speak vs. typing by hand",
                 color: .yellow
             )
             
@@ -272,7 +272,7 @@ struct MetricsContent: View {
     
     private var heroSubtitle: String {
         guard totalCount > 0 else {
-            return "Your VoiceInk journey starts with your first recording."
+            return "Your Speak journey starts with your first recording."
         }
 
         let wordsText = Formatters.formattedNumber(totalWords)
@@ -284,9 +284,9 @@ struct MetricsContent: View {
     private var heroGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [
-                Color(nsColor: .controlAccentColor),
-                Color(nsColor: .controlAccentColor).opacity(0.85),
-                Color(nsColor: .controlAccentColor).opacity(0.7)
+                Color.accentColor,
+                Color.accentColor.opacity(0.85),
+                Color.accentColor.opacity(0.7)
             ]),
             startPoint: .topLeading,
             endPoint: .bottomTrailing

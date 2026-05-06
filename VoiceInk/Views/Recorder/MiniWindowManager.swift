@@ -7,6 +7,7 @@ class MiniWindowManager: ObservableObject {
     private var windowController: NSWindowController?
     private var panel: MiniRecorderPanel?
     private weak var glassView: NSView?
+    private weak var edgeHighlightView: PillEdgeHighlightView?
     private var contentSize = NSSize(width: 112, height: 40)
 
     private let makeView: (MiniWindowManager) -> AnyView
@@ -97,6 +98,7 @@ class MiniWindowManager: ObservableObject {
         windowController = nil
         panel = nil
         glassView = nil
+        edgeHighlightView = nil
     }
 
     func toggle() {
@@ -112,6 +114,7 @@ class MiniWindowManager: ObservableObject {
 
         if #available(macOS 26.0, *) {
             (glassView as? NSGlassEffectView)?.cornerRadius = cornerRadius
+            edgeHighlightView?.cornerRadius = cornerRadius
         }
     }
 
@@ -139,12 +142,16 @@ class MiniWindowManager: ObservableObject {
         glassView.appearance = NSAppearance(named: .darkAqua)
         glassView.translatesAutoresizingMaskIntoConstraints = false
 
+        let edgeHighlightView = PillEdgeHighlightView(cornerRadius: cornerRadius)
+        edgeHighlightView.translatesAutoresizingMaskIntoConstraints = false
+
         contentView.translatesAutoresizingMaskIntoConstraints = false
         contentView.wantsLayer = true
         contentView.layer?.backgroundColor = NSColor.clear.cgColor
 
         rootView.addSubview(compositorAwakener)
         rootView.addSubview(glassView)
+        rootView.addSubview(edgeHighlightView)
         glassView.contentView = contentView
 
         NSLayoutConstraint.activate([
@@ -158,6 +165,11 @@ class MiniWindowManager: ObservableObject {
             glassView.topAnchor.constraint(equalTo: rootView.topAnchor),
             glassView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
 
+            edgeHighlightView.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
+            edgeHighlightView.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
+            edgeHighlightView.topAnchor.constraint(equalTo: rootView.topAnchor),
+            edgeHighlightView.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
+
             contentView.leadingAnchor.constraint(equalTo: glassView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: glassView.trailingAnchor),
             contentView.topAnchor.constraint(equalTo: glassView.topAnchor),
@@ -165,6 +177,109 @@ class MiniWindowManager: ObservableObject {
         ])
 
         self.glassView = glassView
+        self.edgeHighlightView = edgeHighlightView
         return rootView
+    }
+}
+
+private final class PillEdgeHighlightView: NSView {
+    var cornerRadius: CGFloat {
+        didSet {
+            needsLayout = true
+        }
+    }
+
+    private let topLeftHighlight = CAGradientLayer()
+    private let bottomRightHighlight = CAGradientLayer()
+    private let topLeftMask = CAShapeLayer()
+    private let bottomRightMask = CAShapeLayer()
+
+    init(cornerRadius: CGFloat) {
+        self.cornerRadius = cornerRadius
+        super.init(frame: .zero)
+        setupLayers()
+    }
+
+    required init?(coder: NSCoder) {
+        self.cornerRadius = 20
+        super.init(coder: coder)
+        setupLayers()
+    }
+
+    override var isFlipped: Bool { true }
+
+    override func layout() {
+        super.layout()
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        let layerBounds = bounds
+        topLeftHighlight.frame = layerBounds
+        bottomRightHighlight.frame = layerBounds
+
+        let strokeInset: CGFloat = 0.35
+        let pathBounds = layerBounds.insetBy(dx: strokeInset, dy: strokeInset)
+        let radius = max(0, cornerRadius - strokeInset)
+        let path = CGPath(
+            roundedRect: pathBounds,
+            cornerWidth: radius,
+            cornerHeight: radius,
+            transform: nil
+        )
+
+        configure(mask: topLeftMask, with: path)
+        configure(mask: bottomRightMask, with: path)
+
+        CATransaction.commit()
+    }
+
+    private func setupLayers() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor
+        layer?.masksToBounds = false
+
+        configureTopLeftHighlight()
+        configureBottomRightHighlight()
+
+        topLeftHighlight.mask = topLeftMask
+        bottomRightHighlight.mask = bottomRightMask
+
+        layer?.addSublayer(topLeftHighlight)
+        layer?.addSublayer(bottomRightHighlight)
+    }
+
+    private func configureTopLeftHighlight() {
+        topLeftHighlight.startPoint = CGPoint(x: 0, y: 0)
+        topLeftHighlight.endPoint = CGPoint(x: 1, y: 1)
+        topLeftHighlight.locations = [0, 0.28, 0.58, 1]
+        topLeftHighlight.colors = [
+            NSColor.white.withAlphaComponent(0.30).cgColor,
+            NSColor.white.withAlphaComponent(0.13).cgColor,
+            NSColor.white.withAlphaComponent(0.03).cgColor,
+            NSColor.white.withAlphaComponent(0).cgColor
+        ]
+    }
+
+    private func configureBottomRightHighlight() {
+        bottomRightHighlight.startPoint = CGPoint(x: 1, y: 1)
+        bottomRightHighlight.endPoint = CGPoint(x: 0, y: 0)
+        bottomRightHighlight.locations = [0, 0.26, 0.56, 1]
+        bottomRightHighlight.colors = [
+            NSColor.white.withAlphaComponent(0.22).cgColor,
+            NSColor.white.withAlphaComponent(0.09).cgColor,
+            NSColor.white.withAlphaComponent(0.02).cgColor,
+            NSColor.white.withAlphaComponent(0).cgColor
+        ]
+    }
+
+    private func configure(mask: CAShapeLayer, with path: CGPath) {
+        mask.frame = bounds
+        mask.path = path
+        mask.fillColor = NSColor.clear.cgColor
+        mask.strokeColor = NSColor.white.cgColor
+        mask.lineWidth = 0.35
+        mask.lineJoin = .round
+        mask.lineCap = .round
     }
 }

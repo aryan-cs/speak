@@ -49,13 +49,13 @@ struct OnboardingPermissionsView: View {
         ),
         OnboardingPermission(
             title: "Microphone Selection",
-            description: "Select the audio input device you want to use with VoiceInk.",
+            description: "Select the audio input device you want to use with Speak.",
             icon: "headphones",
             type: .audioDeviceSelection
         ),
         OnboardingPermission(
             title: "Accessibility Access",
-            description: "Allow VoiceInk to help you type anywhere in your Mac.",
+            description: "Allow Speak to help you type anywhere in your Mac.",
             icon: "accessibility",
             type: .accessibility
         ),
@@ -67,7 +67,7 @@ struct OnboardingPermissionsView: View {
         ),
         OnboardingPermission(
             title: "Keyboard Shortcut",
-            description: "Set up a keyboard shortcut to quickly access VoiceInk from anywhere.",
+            description: "Set up a keyboard shortcut to quickly access Speak from anywhere.",
             icon: "keyboard",
             type: .keyboardShortcut
         )
@@ -125,7 +125,7 @@ struct OnboardingPermissionsView: View {
                                     
                                     if permissions[currentPermissionIndex].type == .screenRecording {
                                         InfoTip(
-                                            "VoiceInk captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
+                                            "Speak captures on-screen text to understand the context of your voice input, which significantly improves transcription accuracy. Your privacy is important: this data is processed locally and is not stored.",
                                             learnMoreURL: "https://tryvoiceink.com/docs/contextual-awareness"
                                         )
                                     }

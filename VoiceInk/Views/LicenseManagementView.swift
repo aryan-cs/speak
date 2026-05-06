@@ -35,10 +35,10 @@ struct LicenseManagementView: View {
                 HStack(spacing: 16) {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.system(size: 32))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                     
                     HStack(alignment: .lastTextBaseline, spacing: 8) { 
-                        Text(licenseViewModel.licenseState == .licensed ? "VoiceInk Pro" : "Upgrade to Pro")
+                        Text(licenseViewModel.licenseState == .licensed ? "Speak Pro" : "Upgrade to Pro")
                             .font(.system(size: 32, weight: .bold))
                         
                         Text("v\(appVersion)")
@@ -49,8 +49,8 @@ struct LicenseManagementView: View {
                 }
                 
                 Text(licenseViewModel.licenseState == .licensed ?
-                     "Thank you for supporting VoiceInk" :
-                     "Transcribe what you say to text instantly with AI")
+                     "Made by Aryan." :
+                     "Made by Aryan.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -62,7 +62,7 @@ struct LicenseManagementView: View {
                                 NSWorkspace.shared.open(url)
                             }
                         } label: {
-                            featureItem(icon: "list.bullet.clipboard.fill", title: "Changelog", color: .blue)
+                            featureItem(icon: "list.bullet.clipboard.fill", title: "Changelog", color: .accentColor)
                         }
                         .buttonStyle(.plain)
                         
@@ -115,13 +115,13 @@ struct LicenseManagementView: View {
                 HStack {
                     Image(systemName: "infinity.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                     Text("Buy Once, Own Forever")
                         .font(.headline)
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 16)
-                .background(Color.blue.opacity(0.1))
+                .background(Color.accentColor.opacity(0.1))
                 .cornerRadius(12)
                 
                 // Purchase Button 
@@ -130,7 +130,7 @@ struct LicenseManagementView: View {
                         NSWorkspace.shared.open(url)
                     }
                 }) {
-                    Text("Upgrade to VoiceInk Pro")
+                    Text("Upgrade to Speak Pro")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -140,7 +140,7 @@ struct LicenseManagementView: View {
                 // Features Grid
                 HStack(spacing: 40) {
                     featureItem(icon: "bubble.left.and.bubble.right.fill", title: "Priority Support", color: .purple)
-                    featureItem(icon: "infinity.circle.fill", title: "Lifetime Access", color: .blue)
+                    featureItem(icon: "infinity.circle.fill", title: "Lifetime Access", color: .accentColor)
                     featureItem(icon: "arrow.up.circle.fill", title: "Free Updates", color: .green)
                     featureItem(icon: "macbook.and.iphone", title: "Multiple Devices", color: .orange)
                 }
@@ -241,7 +241,7 @@ struct LicenseManagementView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("You can use VoiceInk Pro on all your personal devices")
+                    Text("You can use Speak Pro on all your personal devices")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -305,5 +305,4 @@ struct LicenseManagementView: View {
         }
     }
 }
-
 

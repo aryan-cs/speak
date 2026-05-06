@@ -198,7 +198,7 @@ class TranscriptionPipeline {
            transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
             if case .trialExpired = licenseViewModel.licenseState {
                 textToPaste = """
-                    Your trial has expired. Upgrade to VoiceInk Pro at tryvoiceink.com/buy
+                    Your trial has expired. Upgrade to Speak Pro at tryvoiceink.com/buy
                     \n\(textToPaste)
                     """
             }

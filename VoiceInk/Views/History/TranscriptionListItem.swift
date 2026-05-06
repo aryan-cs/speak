@@ -63,7 +63,7 @@ struct CircularCheckboxStyle: ToggleStyle {
         }) {
             Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
                 .symbolRenderingMode(.hierarchical)
-                .foregroundColor(configuration.isOn ? Color(NSColor.controlAccentColor) : .secondary)
+                .foregroundColor(configuration.isOn ? Color.accentColor : .secondary)
                 .font(.system(size: 18))
         }
         .buttonStyle(.plain)

@@ -69,7 +69,7 @@ struct WordReplacementView: View {
                 } icon: {
                     Button(action: { showInfoPopover.toggle() }) {
                         Image(systemName: "info.circle.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showInfoPopover) {
@@ -97,7 +97,7 @@ struct WordReplacementView: View {
                     Button(action: addReplacement) {
                         Image(systemName: "plus.circle.fill")
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.accentColor)
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .buttonStyle(.borderless)
@@ -281,7 +281,7 @@ struct WordReplacementInfoPopover: View {
                         Text("Replacement:")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("VoiceInk")
+                        Text("Speak")
                             .font(.callout)
                     }
                 }

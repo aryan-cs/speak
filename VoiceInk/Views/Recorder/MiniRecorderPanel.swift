@@ -42,17 +42,19 @@ class MiniRecorderPanel: NSPanel {
             return NSRect(origin: .zero, size: contentSize)
         }
 
-        let dockClearance: CGFloat = 116
-        let visibleFramePadding: CGFloat = 5
+        let dockClearance: CGFloat = 84
+        let visibleFramePadding: CGFloat = 20
 
         let screenFrame = screen.frame
         let visibleFrame = screen.visibleFrame
         let centerX = visibleFrame.midX
         let xPosition = centerX - (contentSize.width / 2)
-        let yPosition = max(
-            screenFrame.minY + dockClearance,
-            visibleFrame.minY + visibleFramePadding
-        )
+        let yPosition: CGFloat
+        if visibleFrame.minY > screenFrame.minY {
+            yPosition = visibleFrame.minY + visibleFramePadding
+        } else {
+            yPosition = screenFrame.minY + dockClearance
+        }
 
         return NSRect(
             x: xPosition.rounded(),

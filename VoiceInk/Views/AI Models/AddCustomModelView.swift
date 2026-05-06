@@ -143,8 +143,8 @@ struct AddCustomModelCardView: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(isFormValid ? Color(.controlAccentColor) : Color.secondary)
-                                    .shadow(color: (isFormValid ? Color(.controlAccentColor) : Color.secondary).opacity(0.2), radius: 2, x: 0, y: 1)
+                                    .fill(isFormValid ? Color.accentColor : Color.secondary)
+                                    .shadow(color: (isFormValid ? Color.accentColor : Color.secondary).opacity(0.2), radius: 2, x: 0, y: 1)
                             )
                         }
                         .buttonStyle(.plain)

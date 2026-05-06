@@ -288,7 +288,7 @@ struct InputModeCard: View {
                 Image(systemName: icon)
                     .font(.system(size: 28))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(mode.rawValue)
@@ -319,7 +319,7 @@ struct DeviceSelectionCard: View {
             HStack {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .font(.system(size: 18))
                 
                 Text(name)
@@ -409,13 +409,13 @@ struct DevicePriorityCard: View {
                     HStack(spacing: 2) {
                         Button(action: onMoveUp) {
                             Image(systemName: "chevron.up")
-                                .foregroundStyle(canMoveUp ? .blue : .secondary.opacity(0.5))
+                                .foregroundStyle(canMoveUp ? Color.accentColor : Color.secondary.opacity(0.5))
                         }
                         .disabled(!canMoveUp)
                         
                         Button(action: onMoveDown) {
                             Image(systemName: "chevron.down")
-                                .foregroundStyle(canMoveDown ? .blue : .secondary.opacity(0.5))
+                                .foregroundStyle(canMoveDown ? Color.accentColor : Color.secondary.opacity(0.5))
                         }
                         .disabled(!canMoveDown)
                     }
@@ -425,7 +425,7 @@ struct DevicePriorityCard: View {
                 Button(action: onTogglePriority) {
                     Image(systemName: isPrioritized ? "minus.circle.fill" : "plus.circle.fill")
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(isPrioritized ? .red : .blue)
+                        .foregroundStyle(isPrioritized ? Color.red : Color.accentColor)
                 }
             }
             .buttonStyle(.plain)

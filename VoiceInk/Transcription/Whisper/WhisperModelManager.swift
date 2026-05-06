@@ -458,7 +458,7 @@ struct DownloadProgressView: View {
                         .frame(height: 6)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.controlAccentColor))
+                        .fill(Color.accentColor)
                         .frame(width: max(0, min(geometry.size.width * totalProgress, geometry.size.width)), height: 6)
                 }
             }

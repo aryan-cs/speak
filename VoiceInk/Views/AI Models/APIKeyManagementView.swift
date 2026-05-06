@@ -25,7 +25,7 @@ struct APIKeyManagementView: View {
                     }
                 }
                 .pickerStyle(.automatic)
-                .tint(.blue)
+                .tint(Color.accentColor)
                 
                 if aiService.isAPIKeyValid && aiService.selectedProvider != .ollama {
                     Spacer()
@@ -211,7 +211,7 @@ struct APIKeyManagementView: View {
                         aiService.updateLocalCLITimeoutSeconds(newValue)
                     }
 
-                    Text("Environment variables available: VOICEINK_SYSTEM_PROMPT, VOICEINK_USER_PROMPT, VOICEINK_FULL_PROMPT. VoiceInk also writes VOICEINK_FULL_PROMPT to stdin for every command.")
+                    Text("Environment variables available: VOICEINK_SYSTEM_PROMPT, VOICEINK_USER_PROMPT, VOICEINK_FULL_PROMPT. Speak also writes VOICEINK_FULL_PROMPT to stdin for every command.")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -281,10 +281,10 @@ struct APIKeyManagementView: View {
                                         Text("Get API Key")
                                     }
                                     .font(.caption)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(.accentColor)
                                     .padding(.vertical, 4)
                                     .padding(.horizontal, 8)
-                                    .background(Color.blue.opacity(0.1))
+                                    .background(Color.accentColor.opacity(0.1))
                                     .cornerRadius(6)
                                 }
                                 .buttonStyle(.plain)

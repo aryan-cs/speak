@@ -46,13 +46,13 @@ struct VocabularyView: View {
         VStack(alignment: .leading, spacing: 20) {
             GroupBox {
                 Label {
-                    Text("Add words to help VoiceInk recognize them properly. (Requires AI enhancement)")
+                    Text("Add words to help Speak recognize them properly. (Requires AI enhancement)")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: "info.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(.accentColor)
                 }
             }
 
@@ -66,7 +66,7 @@ struct VocabularyView: View {
                     Button(action: addWords) {
                         Image(systemName: "plus.circle.fill")
                             .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.accentColor)
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .buttonStyle(.borderless)

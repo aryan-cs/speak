@@ -16,25 +16,25 @@ struct MetricsView: View {
                     message: "You have \(daysRemaining) days left in your trial",
                     type: daysRemaining <= 2 ? .warning : .info,
                     onAddLicenseKey: {
-                        // Post notification to navigate to VoiceInk Pro tab
+                        // Post notification to navigate to Speak Pro tab
                         NotificationCenter.default.post(
                             name: .navigateToDestination,
                             object: nil,
-                            userInfo: ["destination": "VoiceInk Pro"]
+                            userInfo: ["destination": "Speak Pro"]
                         )
                     }
                 )
                 .padding()
             } else if case .trialExpired = licenseViewModel.licenseState {
                 TrialMessageView(
-                    message: "Your trial has expired. Upgrade to continue using VoiceInk",
+                    message: "Your trial has expired. Upgrade to continue using Speak",
                     type: .expired,
                     onAddLicenseKey: {
                         // Also allow navigation from expired state
                         NotificationCenter.default.post(
                             name: .navigateToDestination,
                             object: nil,
-                            userInfo: ["destination": "VoiceInk Pro"]
+                            userInfo: ["destination": "Speak Pro"]
                         )
                     }
                 )

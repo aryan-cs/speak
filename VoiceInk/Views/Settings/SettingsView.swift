@@ -245,7 +245,7 @@ struct SettingsView: View {
             } header: {
                 Text("Privacy")
             } footer: {
-                Text("Control how VoiceInk handles your transcription data and audio recordings.")
+                Text("Control how Speak handles your transcription data and audio recordings.")
             }
 
             // MARK: - Backup

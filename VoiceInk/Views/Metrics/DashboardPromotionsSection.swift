@@ -33,10 +33,10 @@ struct DashboardPromotionsSection: View {
                 if shouldShowUpgradePromotion {
                     DashboardPromotionCard(
                         badge: "30% OFF",
-                        title: "Unlock VoiceInk Pro For Less",
-                        message: "Share VoiceInk on your socials, and instantly unlock a 30% discount on VoiceInk Pro.",
+                        title: "Unlock Speak Pro For Less",
+                        message: "Share Speak on your socials, and instantly unlock a 30% discount on Speak Pro.",
                         accentSymbol: "megaphone.fill",
-                        glowColor: Color(red: 0.08, green: 0.48, blue: 0.85),
+                        glowColor: Color.accentColor,
                         actionTitle: "Share & Unlock",
                         actionIcon: "arrow.up.right",
                         action: openSocialShare
@@ -47,10 +47,10 @@ struct DashboardPromotionsSection: View {
                 if shouldShowAffiliatePromotion {
                     DashboardPromotionCard(
                         badge: "AFFILIATE 30%",
-                        title: "Earn With The VoiceInk Affiliate Program",
-                        message: "Share VoiceInk with friends or your audience and receive 30% on every referral that upgrades.",
+                        title: "Earn With The Speak Affiliate Program",
+                        message: "Share Speak with friends or your audience and receive 30% on every referral that upgrades.",
                         accentSymbol: "link.badge.plus",
-                        glowColor: Color(red: 0.08, green: 0.48, blue: 0.85),
+                        glowColor: Color.accentColor,
                         actionTitle: "Explore Affiliate",
                         actionIcon: "arrow.up.right",
                         action: openAffiliateProgram,
@@ -98,8 +98,8 @@ private struct DashboardPromotionCard: View {
 
     private static let defaultGradient: LinearGradient = LinearGradient(
         colors: [
-            Color(red: 0.08, green: 0.48, blue: 0.85),
-            Color(red: 0.05, green: 0.18, blue: 0.42)
+            Color.accentColor.opacity(0.9),
+            Color.accentColor.opacity(0.42)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing

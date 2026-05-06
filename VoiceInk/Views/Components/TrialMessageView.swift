@@ -64,7 +64,7 @@ struct TrialMessageView: View {
         switch type {
         case .warning: return .orange
         case .expired: return .red
-        case .info: return .blue
+        case .info: return .accentColor
         }
     }
     
@@ -80,7 +80,7 @@ struct TrialMessageView: View {
         switch type {
         case .warning: return Color.orange.opacity(0.1)
         case .expired: return Color.red.opacity(0.1)
-        case .info: return Color.blue.opacity(0.1)
+        case .info: return Color.accentColor.opacity(0.1)
         }
     }
 } 

@@ -206,8 +206,8 @@ struct AudioTranscribeView: View {
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(Color(.controlAccentColor))
-                            .shadow(color: Color(.controlAccentColor).opacity(0.2), radius: 2, x: 0, y: 1)
+                            .fill(Color.accentColor)
+                            .shadow(color: Color.accentColor.opacity(0.2), radius: 2, x: 0, y: 1)
                     )
                 }
                 .buttonStyle(.plain)

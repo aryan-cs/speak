@@ -15,7 +15,7 @@ enum ViewType: String, CaseIterable, Identifiable {
     case audioInput = "Audio Input"
     case dictionary = "Dictionary"
     case settings = "Settings"
-    case license = "VoiceInk Pro"
+    case license = "Speak Pro"
 
     var id: String { rawValue }
 
@@ -92,6 +92,8 @@ struct VisualEffectView: NSViewRepresentable {
 
 struct ContentView: View {
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ContentView")
+    private let sidebarWidth: CGFloat = 210
+    private let windowWidth: CGFloat = 950
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var engine: VoiceInkEngine
@@ -126,16 +128,16 @@ struct ContentView: View {
                                 .cornerRadius(8)
                         }
 
-                        Text("VoiceInk")
+                        Text("Speak")
                             .font(.system(size: 14, weight: .semibold))
 
                         if case .licensed = licenseViewModel.licenseState {
                             Text("PRO")
                                 .font(.system(size: 9, weight: .heavy))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.black.opacity(0.78))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(Color.blue)
+                                .background(Color.accentColor)
                                 .cornerRadius(4)
                         }
 
@@ -155,8 +157,8 @@ struct ContentView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationTitle("VoiceInk")
-            .navigationSplitViewColumnWidth(210)
+            .navigationTitle("Speak")
+            .navigationSplitViewColumnWidth(sidebarWidth)
         } detail: {
             if let selectedView = selectedView {
                 detailView(for: selectedView)
@@ -168,7 +170,7 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(width: 950)
+        .frame(width: windowWidth)
         .frame(minHeight: 730)
         .onAppear {
             logger.notice("ContentView appeared")
@@ -184,7 +186,7 @@ struct ContentView: View {
                     selectedView = .settings
                 case "AI Models":
                     selectedView = .models
-                case "VoiceInk Pro":
+                case "Speak Pro":
                     selectedView = .license
                 case "History":
                     selectedView = .history

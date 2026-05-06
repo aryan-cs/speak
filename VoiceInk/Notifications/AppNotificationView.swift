@@ -30,7 +30,7 @@ struct AppNotificationView: View {
             switch self {
             case .error: return .red
             case .warning: return .yellow
-            case .info: return .blue
+            case .info: return .accentColor
             case .success: return .green
             }
         }

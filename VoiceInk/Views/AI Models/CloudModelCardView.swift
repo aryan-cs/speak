@@ -190,8 +190,8 @@ struct CloudModelCardView: View {
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(Color(.controlAccentColor))
-                            .shadow(color: Color(.controlAccentColor).opacity(0.2), radius: 2, x: 0, y: 1)
+                            .fill(Color.accentColor)
+                            .shadow(color: Color.accentColor.opacity(0.2), radius: 2, x: 0, y: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -244,7 +244,7 @@ struct CloudModelCardView: View {
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(verificationStatus == .success ? Color(.systemGreen) : Color(.controlAccentColor))
+                            .fill(verificationStatus == .success ? Color(.systemGreen) : Color.accentColor)
                     )
                 }
                 .buttonStyle(.plain)
