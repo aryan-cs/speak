@@ -8,8 +8,8 @@ import os
 final class KeychainService {
     static let shared = KeychainService()
 
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "KeychainService")
-    private let service = "com.prakashjoshipax.VoiceInk"
+    private let logger = Logger(subsystem: AppConstants.logSubsystem, category: "KeychainService")
+    private let service = AppConstants.bundleIdentifier
 
     #if LOCAL_BUILD
     private let defaults = UserDefaults.standard

@@ -91,7 +91,7 @@ struct VisualEffectView: NSViewRepresentable {
 }
 
 struct ContentView: View {
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "ContentView")
+    private let logger = Logger(subsystem: AppConstants.logSubsystem, category: "ContentView")
     private let sidebarWidth: CGFloat = 210
     private let windowWidth: CGFloat = 950
     @Environment(\.modelContext) private var modelContext

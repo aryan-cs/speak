@@ -3,7 +3,7 @@ import os
 
 class PromptDetectionService {
     private let logger = Logger(
-        subsystem: "com.prakashjoshipax.voiceink",
+        subsystem: AppConstants.logSubsystem,
         category: "promptdetection"
     )
     

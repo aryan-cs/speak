@@ -19,7 +19,7 @@ class LicenseViewModel: ObservableObject {
 
     private let trialPeriodDays = 7
     private let polarService = PolarService()
-    private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "LicenseViewModel")
+    private let logger = Logger(subsystem: AppConstants.logSubsystem, category: "LicenseViewModel")
     private let userDefaults = UserDefaults.standard
     private let licenseManager = LicenseManager.shared
 
