@@ -228,7 +228,7 @@ struct MenuBarView: View {
             
             Divider()
             
-            Button("Check for Updates") {
+            Button("Open GitHub Releases") {
                 updaterViewModel.checkForUpdates()
             }
             .disabled(!updaterViewModel.canCheckForUpdates)

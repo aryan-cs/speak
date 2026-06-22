@@ -58,7 +58,7 @@ struct LicenseManagementView: View {
                 if case .licensed = licenseViewModel.licenseState {
                     HStack(spacing: 40) {
                         Button {
-                            if let url = URL(string: "https://github.com/Beingpax/VoiceInk/releases") {
+                            if let url = URL(string: "https://github.com/aryan-cs/speak/releases") {
                                 NSWorkspace.shared.open(url)
                             }
                         } label: {
@@ -305,4 +305,3 @@ struct LicenseManagementView: View {
         }
     }
 }
-
