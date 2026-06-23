@@ -4,7 +4,7 @@ WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run
+.PHONY: all clean whisper setup build local release-macos check healthcheck help dev run
 
 # Default target
 all: check build
@@ -47,6 +47,7 @@ build: setup
 # Build for local use without Apple Developer certificate
 local: check setup
 	@echo "Building Speak for local use (no Apple Developer certificate required)..."
+	@echo "This is an ad-hoc local build. Do not upload it as a public GitHub release asset."
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
@@ -75,6 +76,10 @@ local: check setup
 		echo "Error: Could not find built Speak.app at $$APP_PATH"; \
 		exit 1; \
 	fi
+
+# Build signed, notarized macOS release ZIP and DMG artifacts.
+release-macos: check setup
+	./scripts/package_macos_release.sh
 
 # Run application
 run:
@@ -107,6 +112,7 @@ help:
 	@echo "  setup              Copy whisper XCFramework to the project"
 	@echo "  build              Build the Speak Xcode project"
 	@echo "  local              Build for local use (no Apple Developer certificate needed)"
+	@echo "  release-macos      Build Developer ID signed and notarized ZIP/DMG artifacts"
 	@echo "  run                Launch the built Speak app"
 	@echo "  dev                Build and run the app (for development)"
 	@echo "  all                Run full build process (default)"
