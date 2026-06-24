@@ -16,4 +16,6 @@ APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
 make release-macos
 ```
 
+By default this uses `VoiceInk/VoiceInk.release.entitlements`, which omits CloudKit and push entitlements so a Developer ID release does not require an iCloud provisioning profile. Set `RELEASE_ENTITLEMENTS=VoiceInk/VoiceInk.entitlements` only if the matching Developer ID provisioning profile is configured.
+
 Use `make local` only for private ad-hoc builds. Do not upload local builds as release ZIPs or DMGs.
