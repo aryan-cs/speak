@@ -1,139 +1,140 @@
-# Building VoiceInk
+# Building Speak
 
-This guide provides detailed instructions for building VoiceInk from source.
+This repository builds a macOS app named `Speak.app` from the `VoiceInk`
+Xcode scheme. Use this guide when the GitHub release does not yet include a
+working Developer ID signed and notarized `.dmg`.
 
-## Prerequisites
+## Requirements
 
-Before you begin, ensure you have:
 - macOS 14.4 or later
-- Xcode (latest version recommended)
-- Swift (latest version recommended)
-- Git (for cloning repositories)
+- Xcode with the macOS SDK installed
+- Xcode Command Line Tools selected with `xcode-select`
+- Git
+- Network access for the first build, so Xcode can resolve Swift packages and
+  the Makefile can clone/build `whisper.cpp`
 
-## Quick Start with Makefile (Recommended)
+Check the required command line tools:
 
-The easiest way to build VoiceInk is using the included Makefile, which automates the entire build process including building and linking the whisper framework.
-
-### Simple Build Commands
-
-```bash
-# Clone the repository
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
-
-# Build everything (recommended for first-time setup)
-make all
-
-# Or for development (build and run)
-make dev
+```sh
+make check
 ```
 
-### Available Makefile Commands
+## Local Build Without an Apple Developer Account
 
-- `make check` or `make healthcheck` - Verify all required tools are installed
-- `make whisper` - Clone and build whisper.cpp XCFramework automatically
-- `make setup` - Prepare the whisper framework for linking
-- `make build` - Build the VoiceInk Xcode project
-- `make local` - Build for local use (no Apple Developer certificate needed)
-- `make run` - Launch the built VoiceInk app
-- `make dev` - Build and run (ideal for development workflow)
-- `make all` - Complete build process (default)
-- `make clean` - Remove build artifacts and dependencies
-- `make help` - Show all available commands
+This is the recommended path for anyone who wants to build and run the app from
+source on their own Mac.
 
-### How the Makefile Helps
-
-The Makefile automatically:
-1. **Manages Dependencies**: Creates a dedicated `~/VoiceInk-Dependencies` directory for all external frameworks
-2. **Builds Whisper Framework**: Clones whisper.cpp and builds the XCFramework with the correct configuration
-3. **Handles Framework Linking**: Sets up the whisper.xcframework in the proper location for Xcode to find
-4. **Verifies Prerequisites**: Checks that git, xcodebuild, and swift are installed before building
-5. **Streamlines Development**: Provides convenient shortcuts for common development tasks
-
-This approach ensures consistent builds across different machines and eliminates manual framework setup errors.
-
----
-
-## Building for Local Use (No Apple Developer Certificate)
-
-If you don't have an Apple Developer certificate, use `make local`:
-
-```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
+```sh
+git clone https://github.com/aryan-cs/speak.git
+cd speak
+make check
 make local
-open ~/Downloads/VoiceInk.app
+open ~/Downloads/Speak.app
 ```
 
-This builds VoiceInk with ad-hoc signing using a separate build configuration (`LocalBuild.xcconfig`) that requires no Apple Developer account.
+`make local` does the following:
 
-### How It Works
+- builds the shared `VoiceInk` Xcode scheme in Debug
+- uses `LocalBuild.xcconfig`
+- uses ad-hoc signing, so no Apple Developer account is required
+- uses `VoiceInk/VoiceInk.local.entitlements`
+- defines the `LOCAL_BUILD` Swift compilation flag
+- copies the result to `~/Downloads/Speak.app`
+- clears quarantine attributes from that local copy
 
-The `make local` command uses:
-- `LocalBuild.xcconfig` to override signing and entitlements settings
-- `VoiceInk.local.entitlements` (stripped-down, no CloudKit/keychain groups)
-- `LOCAL_BUILD` Swift compilation flag for conditional code paths
+The first build can take a while. The Makefile clones `whisper.cpp` into
+`~/VoiceInk-Dependencies`, builds `whisper.xcframework`, and then lets Xcode
+resolve the pinned Swift packages from `Package.resolved`.
 
-Your normal `make all` / `make build` commands are completely unaffected.
+## First Launch Permissions
 
----
+When the app opens, complete the onboarding permissions. Speak needs these
+macOS permissions to behave like the local development build:
 
-## Manual Build Process (Alternative)
+- Microphone Access, for recording audio
+- Accessibility Access, for pasting transcribed text at the cursor
+- Screen Recording Access, for optional screen-context features
+- a keyboard shortcut configured inside Speak
 
-If you prefer to build manually or need more control over the build process, follow these steps:
+If macOS asks you to quit and reopen after granting Accessibility or Screen
+Recording, quit Speak completely and run:
 
-### Building whisper.cpp Framework
-
-1. Clone and build whisper.cpp:
-```bash
-git clone https://github.com/ggerganov/whisper.cpp.git
-cd whisper.cpp
-./build-xcframework.sh
-```
-This will create the XCFramework at `build-apple/whisper.xcframework`.
-
-### Building VoiceInk
-
-1. Clone the VoiceInk repository:
-```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
+```sh
+open ~/Downloads/Speak.app
 ```
 
-2. Add the whisper.xcframework to your project:
-   - Drag and drop `../whisper.cpp/build-apple/whisper.xcframework` into the project navigator, or
-   - Add it manually in the "Frameworks, Libraries, and Embedded Content" section of project settings
+## Local Build Limitations
 
-3. Build and Run
-   - Build the project using Cmd+B or Product > Build
-   - Run the project using Cmd+R or Product > Run
+Local builds are for personal use and testing. They intentionally do not match a
+public release installer:
 
-## Development Setup
+- no iCloud dictionary sync
+- no automatic updates
+- no Apple notarization ticket
+- no Developer ID signature
 
-1. **Xcode Configuration**
-   - Ensure you have the latest Xcode version
-   - Install any required Xcode Command Line Tools
+Do not upload `make local` output as a public GitHub release ZIP or DMG. Other
+Macs may block ad-hoc signed downloads with Gatekeeper.
 
-2. **Dependencies**
-   - The project uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for transcription
-   - Ensure the whisper.xcframework is properly linked in your Xcode project
-   - Test the whisper.cpp installation independently before proceeding
+## Development Commands
 
-3. **Building for Development**
-   - Use the Debug configuration for development
-   - Enable relevant debugging options in Xcode
+```sh
+make check          # verify git, xcodebuild, and swift are installed
+make setup          # build/prepare whisper.xcframework
+make build          # Debug build through xcodebuild
+make local          # ad-hoc local build copied to ~/Downloads/Speak.app
+make run            # open the existing local/DerivedData app
+make dev            # build and run
+make clean          # remove ~/VoiceInk-Dependencies
+```
 
-4. **Testing**
-   - Run the test suite before making changes
-   - Ensure all tests pass after your modifications
+The project is an Xcode project, not a Swift package entrypoint. The shared
+scheme is `VoiceInk`, and the product name is `Speak`.
+
+## Manual Xcode Build
+
+The Makefile is the supported path because it prepares `whisper.xcframework` in
+the location expected by the Xcode project. If you want to use Xcode manually:
+
+1. Run `make setup`.
+2. Open `VoiceInk.xcodeproj`.
+3. Select the `VoiceInk` scheme.
+4. Build or run the app from Xcode.
+
+If signing fails in Xcode, use `make local` instead. The normal Debug/Release
+project settings use Apple signing and full app entitlements that require the
+matching Apple Developer account and provisioning setup.
+
+## Public ZIP/DMG Release Builds
+
+Public downloads must be Developer ID signed, notarized, and stapled. Use this
+only if you have the Apple Developer credentials for the release:
+
+```sh
+DEVELOPER_ID_APPLICATION="Developer ID Application: ..." \
+APPLE_ID="you@example.com" \
+APPLE_TEAM_ID="TEAMID1234" \
+APPLE_APP_SPECIFIC_PASSWORD="app-specific-password" \
+make release-macos
+```
+
+The release packaging script refuses to package ad-hoc or unsigned builds. On a
+successful release build, it writes:
+
+- `dist/Speak-$VERSION.zip`
+- `dist/Speak-$VERSION.dmg`
+- `dist/checksums-$VERSION.txt`
+
+Only upload those verified release artifacts to GitHub releases.
 
 ## Troubleshooting
 
-If you encounter any build issues:
-1. Clean the build folder (Cmd+Shift+K)
-2. Clean the build cache (Cmd+Shift+K twice)
-3. Check Xcode and macOS versions
-4. Verify all dependencies are properly installed
-5. Make sure whisper.xcframework is properly built and linked
-
-For more help, please check the [issues](https://github.com/Beingpax/VoiceInk/issues) section or create a new issue. 
+- If the build cannot find `whisper.xcframework`, run `make setup`.
+- If package resolution fails, make sure the Mac has network access and Xcode is
+  fully installed.
+- If Xcode reports signing or provisioning errors, use `make local`.
+- If permissions look granted but dictation still does not paste, quit and
+  reopen `~/Downloads/Speak.app` after granting Accessibility and Screen
+  Recording.
+- If the app cannot be opened after moving it between Macs, rebuild locally on
+  that Mac or use a properly signed and notarized release DMG.
