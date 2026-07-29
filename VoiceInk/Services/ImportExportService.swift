@@ -22,6 +22,8 @@ struct GeneralSettings: Codable {
     let isSoundFeedbackEnabled: Bool?
     let isSystemMuteEnabled: Bool?
     let audioDuckingLevel: Double?
+    let musicDuckingLevel: Double?
+    let communicationDuckingLevel: Double?
     let isPauseMediaEnabled: Bool?
     let audioResumptionDelay: Double?
     let isTextFormattingEnabled: Bool?
@@ -120,6 +122,8 @@ class ImportExportService {
             isSoundFeedbackEnabled: soundManager.isEnabled,
             isSystemMuteEnabled: mediaController.isSystemMuteEnabled,
             audioDuckingLevel: mediaController.audioDuckingLevel,
+            musicDuckingLevel: mediaController.musicDuckingLevel,
+            communicationDuckingLevel: mediaController.communicationDuckingLevel,
             isPauseMediaEnabled: playbackController.isPauseMediaEnabled,
             audioResumptionDelay: mediaController.audioResumptionDelay,
             isTextFormattingEnabled: UserDefaults.standard.bool(forKey: keyIsTextFormattingEnabled),
@@ -328,6 +332,12 @@ class ImportExportService {
                         }
                         if let duckingLevel = general.audioDuckingLevel {
                             mediaController.audioDuckingLevel = duckingLevel
+                        }
+                        if let musicDuckingLevel = general.musicDuckingLevel {
+                            mediaController.musicDuckingLevel = musicDuckingLevel
+                        }
+                        if let communicationDuckingLevel = general.communicationDuckingLevel {
+                            mediaController.communicationDuckingLevel = communicationDuckingLevel
                         }
                         if let pauseMedia = general.isPauseMediaEnabled {
                             playbackController.isPauseMediaEnabled = pauseMedia

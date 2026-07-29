@@ -30,11 +30,43 @@ final class MediaController: ObservableObject {
 
     @Published var audioDuckingLevel: Double = UserDefaults.standard.double(forKey: "audioDuckingLevel") {
         didSet {
-            let normalizedValue = Self.normalizedDuckingLevel(audioDuckingLevel)
+            let normalizedValue = AudioDuckingPolicy.normalizedLevel(
+                audioDuckingLevel,
+                fallback: AudioDuckingPolicy.defaultStandardLevel
+            )
             if normalizedValue != audioDuckingLevel {
                 audioDuckingLevel = normalizedValue
             }
             UserDefaults.standard.set(normalizedValue, forKey: "audioDuckingLevel")
+        }
+    }
+
+    @Published var musicDuckingLevel: Double = UserDefaults.standard.double(forKey: "musicDuckingLevel") {
+        didSet {
+            let normalizedValue = AudioDuckingPolicy.normalizedLevel(
+                musicDuckingLevel,
+                fallback: AudioDuckingPolicy.defaultMusicLevel
+            )
+            if normalizedValue != musicDuckingLevel {
+                musicDuckingLevel = normalizedValue
+            }
+            UserDefaults.standard.set(normalizedValue, forKey: "musicDuckingLevel")
+        }
+    }
+
+    @Published var communicationDuckingLevel: Double = UserDefaults.standard.double(forKey: "communicationDuckingLevel") {
+        didSet {
+            let normalizedValue = AudioDuckingPolicy.normalizedLevel(
+                communicationDuckingLevel,
+                fallback: AudioDuckingPolicy.defaultCommunicationLevel
+            )
+            if normalizedValue != communicationDuckingLevel {
+                communicationDuckingLevel = normalizedValue
+            }
+            UserDefaults.standard.set(
+                normalizedValue,
+                forKey: "communicationDuckingLevel"
+            )
         }
     }
 
@@ -43,7 +75,18 @@ final class MediaController: ObservableObject {
     }
 
     private init() {
-        audioDuckingLevel = Self.normalizedDuckingLevel(audioDuckingLevel)
+        audioDuckingLevel = AudioDuckingPolicy.normalizedLevel(
+            audioDuckingLevel,
+            fallback: AudioDuckingPolicy.defaultStandardLevel
+        )
+        musicDuckingLevel = AudioDuckingPolicy.normalizedLevel(
+            musicDuckingLevel,
+            fallback: AudioDuckingPolicy.defaultMusicLevel
+        )
+        communicationDuckingLevel = AudioDuckingPolicy.normalizedLevel(
+            communicationDuckingLevel,
+            fallback: AudioDuckingPolicy.defaultCommunicationLevel
+        )
     }
 
     func cancelPendingRestoration() {
@@ -58,18 +101,34 @@ final class MediaController: ObservableObject {
 
         cancelPendingRestoration()
 
-        let targetVolume = Float32(Self.normalizedDuckingLevel(audioDuckingLevel))
+        let profile = AudioDuckingPolicy.profile(
+            for: activeAudioProcessBundleIdentifiers()
+        )
+        let targetVolume = Float32(
+            AudioDuckingPolicy.level(
+                for: profile,
+                standardLevel: audioDuckingLevel,
+                musicLevel: musicDuckingLevel,
+                communicationLevel: communicationDuckingLevel
+            )
+        )
 
         if let activeDuckingSession {
             if activeDuckingSession.deviceID == deviceID {
-                return reapplyDucking(to: activeDuckingSession, targetVolume: targetVolume)
+                return reapplyDucking(
+                    to: activeDuckingSession,
+                    targetVolume: targetVolume
+                )
             }
 
             restoreVolume(from: activeDuckingSession)
             self.activeDuckingSession = nil
         }
 
-        let controls = writableVolumeAddresses(for: deviceID).compactMap { address -> VolumeControlState? in
+        let volumeAddresses = writableVolumeAddresses(for: deviceID)
+        guard !volumeAddresses.isEmpty else { return false }
+
+        let controls = volumeAddresses.compactMap { address -> VolumeControlState? in
             guard let originalValue = readVolume(deviceID: deviceID, address: address) else {
                 return nil
             }
@@ -89,8 +148,11 @@ final class MediaController: ObservableObject {
         }
 
         guard !controls.isEmpty else {
-            return writableVolumeAddresses(for: deviceID).contains { address in
-                guard let currentValue = readVolume(deviceID: deviceID, address: address) else {
+            return volumeAddresses.contains { address in
+                guard let currentValue = readVolume(
+                    deviceID: deviceID,
+                    address: address
+                ) else {
                     return false
                 }
                 return currentValue <= targetVolume
@@ -123,12 +185,10 @@ final class MediaController: ObservableObject {
         await task.value
     }
 
-    private static func normalizedDuckingLevel(_ value: Double) -> Double {
-        guard value.isFinite, value > 0 else { return 0.4 }
-        return min(max(value, 0.05), 1.0)
-    }
-
-    private func reapplyDucking(to session: DuckingSession, targetVolume: Float32) -> Bool {
+    private func reapplyDucking(
+        to session: DuckingSession,
+        targetVolume: Float32
+    ) -> Bool {
         let refreshedControls = session.controls.compactMap { control -> VolumeControlState? in
             guard let currentValue = readVolume(
                 deviceID: session.deviceID,
@@ -160,6 +220,105 @@ final class MediaController: ObservableObject {
             controls: refreshedControls
         )
         return true
+    }
+
+    private func activeAudioProcessBundleIdentifiers() -> Set<String> {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let systemObjectID = AudioObjectID(kAudioObjectSystemObject)
+        var propertySize = UInt32(0)
+
+        guard AudioObjectGetPropertyDataSize(
+            systemObjectID,
+            &address,
+            0,
+            nil,
+            &propertySize
+        ) == noErr,
+        propertySize >= UInt32(MemoryLayout<AudioObjectID>.size) else {
+            return []
+        }
+
+        let processCount = Int(propertySize) / MemoryLayout<AudioObjectID>.size
+        var processObjectIDs = [AudioObjectID](repeating: 0, count: processCount)
+        let listStatus = processObjectIDs.withUnsafeMutableBytes { buffer in
+            AudioObjectGetPropertyData(
+                systemObjectID,
+                &address,
+                0,
+                nil,
+                &propertySize,
+                buffer.baseAddress!
+            )
+        }
+        guard listStatus == noErr else { return [] }
+
+        return Set(processObjectIDs.compactMap { processObjectID in
+            guard isAudioProcessActive(processObjectID) else { return nil }
+            return audioProcessBundleIdentifier(processObjectID)
+        })
+    }
+
+    private func isAudioProcessActive(_ processObjectID: AudioObjectID) -> Bool {
+        audioProcessBooleanProperty(
+            processObjectID,
+            selector: kAudioProcessPropertyIsRunningInput
+        ) || audioProcessBooleanProperty(
+            processObjectID,
+            selector: kAudioProcessPropertyIsRunningOutput
+        )
+    }
+
+    private func audioProcessBooleanProperty(
+        _ processObjectID: AudioObjectID,
+        selector: AudioObjectPropertySelector
+    ) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var value = UInt32(0)
+        var propertySize = UInt32(MemoryLayout<UInt32>.size)
+
+        let status = AudioObjectGetPropertyData(
+            processObjectID,
+            &address,
+            0,
+            nil,
+            &propertySize,
+            &value
+        )
+        return status == noErr && value != 0
+    }
+
+    private func audioProcessBundleIdentifier(
+        _ processObjectID: AudioObjectID
+    ) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioProcessPropertyBundleID,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var bundleIdentifier: Unmanaged<CFString>?
+        var propertySize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+
+        let status = withUnsafeMutablePointer(to: &bundleIdentifier) {
+            AudioObjectGetPropertyData(
+                processObjectID,
+                &address,
+                0,
+                nil,
+                &propertySize,
+                $0
+            )
+        }
+
+        guard status == noErr, let bundleIdentifier else { return nil }
+        return bundleIdentifier.takeRetainedValue() as String
     }
 
     private func restoreVolume(from session: DuckingSession) {

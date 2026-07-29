@@ -22,4 +22,48 @@ struct VoiceInkTests {
         #expect(TranscriptionPastePolicy.shouldPaste("hello"))
         #expect(TranscriptionPastePolicy.shouldPaste(" hello "))
     }
+
+    @Test func audioDuckingProfilesPreferCallsOverMusic() {
+        #expect(
+            AudioDuckingPolicy.profile(for: ["com.spotify.client"]) == .music
+        )
+        #expect(
+            AudioDuckingPolicy.profile(for: ["com.microsoft.teams2"]) == .communication
+        )
+        #expect(
+            AudioDuckingPolicy.profile(
+                for: ["com.spotify.client", "com.microsoft.teams2.helper"]
+            ) == .communication
+        )
+        #expect(
+            AudioDuckingPolicy.profile(for: ["com.example.player"]) == .standard
+        )
+    }
+
+    @Test func audioDuckingProfilesUseConfiguredStaticLevels() {
+        #expect(
+            AudioDuckingPolicy.level(
+                for: .music,
+                standardLevel: 0.2,
+                musicLevel: 0.15,
+                communicationLevel: 0.3
+            ) == 0.15
+        )
+        #expect(
+            AudioDuckingPolicy.level(
+                for: .standard,
+                standardLevel: 0.2,
+                musicLevel: 0.15,
+                communicationLevel: 0.3
+            ) == 0.2
+        )
+        #expect(
+            AudioDuckingPolicy.level(
+                for: .communication,
+                standardLevel: 0.2,
+                musicLevel: 0.15,
+                communicationLevel: 0.3
+            ) == 0.3
+        )
+    }
 }

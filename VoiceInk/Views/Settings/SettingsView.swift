@@ -25,11 +25,11 @@ struct SettingsView: View {
     @State private var currentShortcut = KeyboardShortcuts.getShortcut(for: .toggleMiniRecorder)
     @State private var isCustomCancelEnabled = KeyboardShortcuts.getShortcut(for: .cancelRecorder) != nil
 
-    // Expansion states - all collapsed by default
+    // Keep audio levels visible so their effect is immediately discoverable.
     @State private var isCustomCancelExpanded = false
     @State private var isMiddleClickExpanded = false
     @State private var isSoundFeedbackExpanded = false
-    @State private var isAudioDuckingExpanded = false
+    @State private var isAudioDuckingExpanded = true
     @State private var isRestoreClipboardExpanded = false
 
     var body: some View {
@@ -153,18 +153,20 @@ struct SettingsView: View {
                     isExpanded: $isAudioDuckingExpanded,
                     isEnabled: $mediaController.isSystemMuteEnabled,
                     label: "Lower Audio While Recording",
-                    infoMessage: "Temporarily lowers other audio without pausing or muting it."
+                    infoMessage: "Each level is a fixed system-volume target. Speak uses the active audio app to keep music quieter and calls clearer without pausing or muting them."
                 ) {
-                    Picker("Recording Volume", selection: $mediaController.audioDuckingLevel) {
-                        Text("10%").tag(0.1)
-                        Text("20%").tag(0.2)
-                        Text("30%").tag(0.3)
-                        Text("40%").tag(0.4)
-                        Text("50%").tag(0.5)
-                        Text("60%").tag(0.6)
-                        Text("70%").tag(0.7)
-                        Text("80%").tag(0.8)
-                    }
+                    audioLevelSlider(
+                        "Spotify & Music",
+                        value: $mediaController.musicDuckingLevel
+                    )
+                    audioLevelSlider(
+                        "Other Audio",
+                        value: $mediaController.audioDuckingLevel
+                    )
+                    audioLevelSlider(
+                        "Teams & Calls",
+                        value: $mediaController.communicationDuckingLevel
+                    )
                     Picker("Resume Delay", selection: $mediaController.audioResumptionDelay) {
                         Text("0s").tag(0.0)
                         Text("1s").tag(1.0)
@@ -310,6 +312,21 @@ struct SettingsView: View {
             }
         } message: {
             Text("You'll see the introduction screens again the next time you launch the app.")
+        }
+    }
+
+    private func audioLevelSlider(
+        _ label: String,
+        value: Binding<Double>
+    ) -> some View {
+        LabeledContent(label) {
+            HStack(spacing: 8) {
+                Slider(value: value, in: 0.05...0.8, step: 0.05)
+                    .frame(width: 170)
+                Text("\(Int((value.wrappedValue * 100).rounded()))%")
+                    .monospacedDigit()
+                    .frame(width: 42, alignment: .trailing)
+            }
         }
     }
 

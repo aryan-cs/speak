@@ -52,7 +52,9 @@ class SystemInfoService {
         Sound Feedback: \(UserDefaults.standard.bool(forKey: "isSoundFeedbackEnabled"))
         Pause Media While Recording: \(UserDefaults.standard.bool(forKey: "isPauseMediaEnabled"))
         Lower Audio While Recording: \(UserDefaults.standard.bool(forKey: "isSystemMuteEnabled"))
-        Recording Audio Level: \(Int(UserDefaults.standard.double(forKey: "audioDuckingLevel") * 100))%
+        Music Recording Volume: \(Int(UserDefaults.standard.double(forKey: "musicDuckingLevel") * 100))%
+        Other Recording Volume: \(Int(UserDefaults.standard.double(forKey: "audioDuckingLevel") * 100))%
+        Call Recording Volume: \(Int(UserDefaults.standard.double(forKey: "communicationDuckingLevel") * 100))%
         Audio Resumption Delay: \(UserDefaults.standard.double(forKey: "audioResumptionDelay"))s
 
         CLIPBOARD & PASTE SETTINGS:
