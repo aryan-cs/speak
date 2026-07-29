@@ -193,9 +193,15 @@ class TranscriptionPipeline {
             return
         }
 
+        let isCompleted = transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue
+        if isCompleted {
+            SoundManager.shared.playStopSound()
+        }
+
         let dismissTask: Task<Void, Never>?
         if var textToPaste = finalPastedText,
-           transcription.transcriptionStatus == TranscriptionStatus.completed.rawValue {
+           isCompleted,
+           TranscriptionPastePolicy.shouldPaste(textToPaste) {
             if case .trialExpired = licenseViewModel.licenseState {
                 textToPaste = """
                     Your trial has expired. Upgrade to Speak Pro at tryvoiceink.com/buy
@@ -206,7 +212,6 @@ class TranscriptionPipeline {
             let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
             let pastedText = textToPaste + (appendSpace ? " " : "")
             let pastePostTask = CursorPaster.startPasteAtCursor(pastedText)
-            SoundManager.shared.playStopSound()
             let autoSendKey = PowerModeManager.shared.currentActiveConfiguration?.autoSendKey
             await restorePromptDetectionSettingsIfNeeded()
             dismissTask = Task { @MainActor in
