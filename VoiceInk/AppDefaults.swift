@@ -14,6 +14,7 @@ enum AppDefaults {
 
             // Audio & Media
             "isSystemMuteEnabled": true,
+            "audioDuckingLevel": 0.4,
             "audioResumptionDelay": 0.0,
             "isPauseMediaEnabled": false,
             "isSoundFeedbackEnabled": true,

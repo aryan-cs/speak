@@ -17,7 +17,7 @@ class Recorder: NSObject, ObservableObject {
     private let audioMeterQueue = DispatchQueue(label: AppConstants.logSubsystem + ".audiometer", qos: .userInteractive)
     /// Dedicated serial queue for hardware setup.
     private let audioSetupQueue = DispatchQueue(label: AppConstants.logSubsystem + ".audioSetup", qos: .userInitiated)
-    private var audioMuteTask: Task<Void, Never>?
+    private var audioDuckingTask: Task<Void, Never>?
     private var audioRestorationTask: Task<Void, Never>?
     private let smoothedValuesLock = NSLock()
     private var smoothedAverage: Float = 0
@@ -96,12 +96,13 @@ class Recorder: NSObject, ObservableObject {
         }
     }
 
-    func scheduleSystemMute(afterDelayNanoseconds delay: UInt64 = 250_000_000) {
-        audioMuteTask?.cancel()
-        audioMuteTask = Task { [weak self] in
+    func scheduleAudioDucking(afterDelayNanoseconds delay: UInt64 = 250_000_000) {
+        audioDuckingTask?.cancel()
+        mediaController.cancelPendingRestoration()
+        audioDuckingTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled, let self else { return }
-            _ = await self.mediaController.muteSystemAudio()
+            _ = await self.mediaController.duckSystemAudio()
         }
     }
 
@@ -156,8 +157,8 @@ class Recorder: NSObject, ObservableObject {
 
     func stopRecording() async {
         logger.notice("stopRecording called")
-        audioMuteTask?.cancel()
-        audioMuteTask = nil
+        audioDuckingTask?.cancel()
+        audioDuckingTask = nil
         audioMeterUpdateTimer?.cancel()
         audioMeterUpdateTimer = nil
 
@@ -181,7 +182,7 @@ class Recorder: NSObject, ObservableObject {
         audioMeter = AudioMeter(averagePower: 0, peakPower: 0)
 
         audioRestorationTask = Task {
-            await mediaController.unmuteSystemAudio()
+            await mediaController.restoreSystemAudio()
             await playbackController.resumeMedia()
         }
         deviceManager.isRecordingActive = false

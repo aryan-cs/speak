@@ -51,7 +51,8 @@ class SystemInfoService {
         RECORDING FEEDBACK:
         Sound Feedback: \(UserDefaults.standard.bool(forKey: "isSoundFeedbackEnabled"))
         Pause Media While Recording: \(UserDefaults.standard.bool(forKey: "isPauseMediaEnabled"))
-        Mute Audio While Recording: \(UserDefaults.standard.bool(forKey: "isSystemMuteEnabled"))
+        Lower Audio While Recording: \(UserDefaults.standard.bool(forKey: "isSystemMuteEnabled"))
+        Recording Audio Level: \(Int(UserDefaults.standard.double(forKey: "audioDuckingLevel") * 100))%
         Audio Resumption Delay: \(UserDefaults.standard.double(forKey: "audioResumptionDelay"))s
 
         CLIPBOARD & PASTE SETTINGS:

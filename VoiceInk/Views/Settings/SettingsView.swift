@@ -29,7 +29,7 @@ struct SettingsView: View {
     @State private var isCustomCancelExpanded = false
     @State private var isMiddleClickExpanded = false
     @State private var isSoundFeedbackExpanded = false
-    @State private var isMuteSystemExpanded = false
+    @State private var isAudioDuckingExpanded = false
     @State private var isRestoreClipboardExpanded = false
 
     var body: some View {
@@ -148,12 +148,23 @@ struct SettingsView: View {
                     CustomSoundSettingsView()
                 }
 
-                // Mute System Audio
+                // Lower System Audio
                 ExpandableSettingsRow(
-                    isExpanded: $isMuteSystemExpanded,
+                    isExpanded: $isAudioDuckingExpanded,
                     isEnabled: $mediaController.isSystemMuteEnabled,
-                    label: "Mute Audio While Recording"
+                    label: "Lower Audio While Recording",
+                    infoMessage: "Temporarily lowers other audio without pausing or muting it."
                 ) {
+                    Picker("Recording Volume", selection: $mediaController.audioDuckingLevel) {
+                        Text("10%").tag(0.1)
+                        Text("20%").tag(0.2)
+                        Text("30%").tag(0.3)
+                        Text("40%").tag(0.4)
+                        Text("50%").tag(0.5)
+                        Text("60%").tag(0.6)
+                        Text("70%").tag(0.7)
+                        Text("80%").tag(0.8)
+                    }
                     Picker("Resume Delay", selection: $mediaController.audioResumptionDelay) {
                         Text("0s").tag(0.0)
                         Text("1s").tag(1.0)

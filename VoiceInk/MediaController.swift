@@ -1,77 +1,189 @@
-import Foundation
+import AudioToolbox
+import Combine
 import CoreAudio
+import Foundation
 
 final class MediaController: ObservableObject {
 
     static let shared = MediaController()
 
-    private var didMuteAudio = false
-    private var wasAudioMutedBeforeRecording = false
-    private var unmuteTask: Task<Void, Never>?
-    private var muteGeneration: Int = 0
+    private struct VolumeControlState {
+        let address: AudioObjectPropertyAddress
+        let originalValue: Float32
+        let duckedValue: Float32
+    }
 
+    private struct DuckingSession {
+        let deviceID: AudioDeviceID
+        let controls: [VolumeControlState]
+    }
+
+    private var activeDuckingSession: DuckingSession?
+    private var restorationTask: Task<Void, Never>?
+    private var duckingGeneration = 0
+
+    // Keep the existing defaults key so current installations and settings
+    // backups retain the user's preference.
     @Published var isSystemMuteEnabled: Bool = UserDefaults.standard.bool(forKey: "isSystemMuteEnabled") {
         didSet { UserDefaults.standard.set(isSystemMuteEnabled, forKey: "isSystemMuteEnabled") }
+    }
+
+    @Published var audioDuckingLevel: Double = UserDefaults.standard.double(forKey: "audioDuckingLevel") {
+        didSet {
+            let normalizedValue = Self.normalizedDuckingLevel(audioDuckingLevel)
+            if normalizedValue != audioDuckingLevel {
+                audioDuckingLevel = normalizedValue
+            }
+            UserDefaults.standard.set(normalizedValue, forKey: "audioDuckingLevel")
+        }
     }
 
     @Published var audioResumptionDelay: Double = UserDefaults.standard.double(forKey: "audioResumptionDelay") {
         didSet { UserDefaults.standard.set(audioResumptionDelay, forKey: "audioResumptionDelay") }
     }
 
-    private init() {}
-
-    func muteSystemAudio() async -> Bool {
-        guard isSystemMuteEnabled else { return false }
-
-        unmuteTask?.cancel()
-        unmuteTask = nil
-        muteGeneration += 1
-
-        let currentlyMuted = isSystemAudioMuted()
-
-        if currentlyMuted {
-            if didMuteAudio {
-                // We muted it previously, stay responsible for unmuting
-                wasAudioMutedBeforeRecording = false
-            } else {
-                // User muted it, don't unmute when done
-                wasAudioMutedBeforeRecording = true
-                didMuteAudio = false
-            }
-            return true
-        }
-
-        wasAudioMutedBeforeRecording = false
-        let success = setSystemMuted(true)
-        didMuteAudio = success
-        return success
+    private init() {
+        audioDuckingLevel = Self.normalizedDuckingLevel(audioDuckingLevel)
     }
 
-    func unmuteSystemAudio() async {
-        guard isSystemMuteEnabled else { return }
+    func cancelPendingRestoration() {
+        restorationTask?.cancel()
+        restorationTask = nil
+        duckingGeneration += 1
+    }
 
-        let delay = audioResumptionDelay
-        let shouldUnmute = didMuteAudio && !wasAudioMutedBeforeRecording
-        let myGeneration = muteGeneration
+    func duckSystemAudio() async -> Bool {
+        guard isSystemMuteEnabled else { return false }
+        guard let deviceID = getDefaultOutputDevice() else { return false }
+
+        cancelPendingRestoration()
+
+        let targetVolume = Float32(Self.normalizedDuckingLevel(audioDuckingLevel))
+
+        if let activeDuckingSession {
+            if activeDuckingSession.deviceID == deviceID {
+                return reapplyDucking(to: activeDuckingSession, targetVolume: targetVolume)
+            }
+
+            restoreVolume(from: activeDuckingSession)
+            self.activeDuckingSession = nil
+        }
+
+        let controls = writableVolumeAddresses(for: deviceID).compactMap { address -> VolumeControlState? in
+            guard let originalValue = readVolume(deviceID: deviceID, address: address) else {
+                return nil
+            }
+
+            let requestedValue = min(originalValue, targetVolume)
+            guard requestedValue < originalValue else { return nil }
+            guard setVolume(requestedValue, deviceID: deviceID, address: address),
+                  let appliedValue = readVolume(deviceID: deviceID, address: address) else {
+                return nil
+            }
+
+            return VolumeControlState(
+                address: address,
+                originalValue: originalValue,
+                duckedValue: appliedValue
+            )
+        }
+
+        guard !controls.isEmpty else {
+            return writableVolumeAddresses(for: deviceID).contains { address in
+                guard let currentValue = readVolume(deviceID: deviceID, address: address) else {
+                    return false
+                }
+                return currentValue <= targetVolume
+            }
+        }
+
+        activeDuckingSession = DuckingSession(deviceID: deviceID, controls: controls)
+        return true
+    }
+
+    func restoreSystemAudio() async {
+        guard let session = activeDuckingSession else { return }
+
+        let delay = max(0, audioResumptionDelay)
+        let generation = duckingGeneration
 
         let task = Task { [weak self] in
             if delay > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
 
-            guard let self = self else { return }
-            guard !Task.isCancelled else { return }
-            guard self.muteGeneration == myGeneration else { return }
+            guard let self, !Task.isCancelled else { return }
+            guard self.duckingGeneration == generation else { return }
 
-            if shouldUnmute {
-                _ = self.setSystemMuted(false)
-            }
-
-            self.didMuteAudio = false
+            self.restoreVolume(from: session)
+            self.activeDuckingSession = nil
         }
 
-        unmuteTask = task
+        restorationTask = task
         await task.value
+    }
+
+    private static func normalizedDuckingLevel(_ value: Double) -> Double {
+        guard value.isFinite, value > 0 else { return 0.4 }
+        return min(max(value, 0.05), 1.0)
+    }
+
+    private func reapplyDucking(to session: DuckingSession, targetVolume: Float32) -> Bool {
+        let refreshedControls = session.controls.compactMap { control -> VolumeControlState? in
+            guard let currentValue = readVolume(
+                deviceID: session.deviceID,
+                address: control.address
+            ) else {
+                return nil
+            }
+
+            let tolerance: Float32 = 0.015
+            let baselineValue = abs(currentValue - control.duckedValue) <= tolerance
+                ? control.originalValue
+                : currentValue
+            let requestedValue = min(baselineValue, targetVolume)
+            guard setVolume(requestedValue, deviceID: session.deviceID, address: control.address),
+                  let appliedValue = readVolume(deviceID: session.deviceID, address: control.address) else {
+                return nil
+            }
+
+            return VolumeControlState(
+                address: control.address,
+                originalValue: baselineValue,
+                duckedValue: appliedValue
+            )
+        }
+
+        guard !refreshedControls.isEmpty else { return false }
+        activeDuckingSession = DuckingSession(
+            deviceID: session.deviceID,
+            controls: refreshedControls
+        )
+        return true
+    }
+
+    private func restoreVolume(from session: DuckingSession) {
+        let tolerance: Float32 = 0.015
+
+        for control in session.controls {
+            guard let currentValue = readVolume(
+                deviceID: session.deviceID,
+                address: control.address
+            ) else {
+                continue
+            }
+
+            // Preserve a volume adjustment the user made while recording.
+            guard abs(currentValue - control.duckedValue) <= tolerance else {
+                continue
+            }
+
+            _ = setVolume(
+                control.originalValue,
+                deviceID: session.deviceID,
+                address: control.address
+            )
+        }
     }
 
     private func getDefaultOutputDevice() -> AudioDeviceID? {
@@ -96,49 +208,89 @@ final class MediaController: ObservableObject {
         return status == noErr ? deviceID : nil
     }
 
-    private func isSystemAudioMuted() -> Bool {
-        guard let deviceID = getDefaultOutputDevice() else { return false }
-
-        var muted: UInt32 = 0
-        var propertySize = UInt32(MemoryLayout<UInt32>.size)
-
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyMute,
+    private func writableVolumeAddresses(for deviceID: AudioDeviceID) -> [AudioObjectPropertyAddress] {
+        let virtualMainAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
 
-        if !AudioObjectHasProperty(deviceID, &address) {
-            address.mElement = 0
-            if !AudioObjectHasProperty(deviceID, &address) { return false }
+        if isVolumeAddressWritable(virtualMainAddress, deviceID: deviceID) {
+            return [virtualMainAddress]
         }
 
-        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &propertySize, &muted)
-        return status == noErr && muted != 0
+        let mainAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        if isVolumeAddressWritable(mainAddress, deviceID: deviceID) {
+            return [mainAddress]
+        }
+
+        return (1...32).compactMap { channel in
+            let address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: AudioObjectPropertyElement(channel)
+            )
+            return isVolumeAddressWritable(address, deviceID: deviceID) ? address : nil
+        }
     }
 
-    private func setSystemMuted(_ muted: Bool) -> Bool {
-        guard let deviceID = getDefaultOutputDevice() else { return false }
-
-        var muteValue: UInt32 = muted ? 1 : 0
-        let propertySize = UInt32(MemoryLayout<UInt32>.size)
-
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyMute,
-            mScope: kAudioDevicePropertyScopeOutput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        if !AudioObjectHasProperty(deviceID, &address) {
-            address.mElement = 0
-            if !AudioObjectHasProperty(deviceID, &address) { return false }
-        }
+    private func isVolumeAddressWritable(
+        _ inputAddress: AudioObjectPropertyAddress,
+        deviceID: AudioDeviceID
+    ) -> Bool {
+        var address = inputAddress
+        guard AudioObjectHasProperty(deviceID, &address) else { return false }
 
         var isSettable: DarwinBoolean = false
-        var status = AudioObjectIsPropertySettable(deviceID, &address, &isSettable)
-        if status != noErr || !isSettable.boolValue { return false }
+        let status = AudioObjectIsPropertySettable(deviceID, &address, &isSettable)
+        guard status == noErr, isSettable.boolValue else { return false }
 
-        status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, propertySize, &muteValue)
+        return readVolume(deviceID: deviceID, address: address) != nil
+    }
+
+    private func readVolume(
+        deviceID: AudioDeviceID,
+        address inputAddress: AudioObjectPropertyAddress
+    ) -> Float32? {
+        var address = inputAddress
+        var volume = Float32(0)
+        var propertySize = UInt32(MemoryLayout<Float32>.size)
+
+        let status = AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &propertySize,
+            &volume
+        )
+
+        return status == noErr ? volume : nil
+    }
+
+    private func setVolume(
+        _ inputVolume: Float32,
+        deviceID: AudioDeviceID,
+        address inputAddress: AudioObjectPropertyAddress
+    ) -> Bool {
+        var address = inputAddress
+        var volume = min(max(inputVolume, 0), 1)
+        let propertySize = UInt32(MemoryLayout<Float32>.size)
+
+        let status = AudioObjectSetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            propertySize,
+            &volume
+        )
+
         return status == noErr
     }
 }
