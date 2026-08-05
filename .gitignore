@@ -99,4 +99,7 @@ Icon
 .AppleDesktop
 Network Trash Folder
 Temporary Items
-.apdisk 
+.apdisk
+
+# Local task tracker; never commit or push.
+/TO-DO.md
