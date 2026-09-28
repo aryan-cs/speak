@@ -45,6 +45,18 @@ enum FinalSnapshotDiffEngine {
         )
     }
 
+    /// The text now sitting where the paste went, found by the text that surrounded it, or nil
+    /// once that surrounding text is gone.
+    static func currentPastedText(in snapshot: AutoLearnFieldSnapshot) -> String? {
+        let baseline = snapshot.baselineFieldText as NSString
+        guard isValid(snapshot.pastedRange, inUTF16Length: baseline.length) else { return nil }
+        return correctedPastedText(
+            in: snapshot.finalFieldText,
+            beforeText: baseline.substring(to: snapshot.pastedRange.location),
+            afterText: baseline.substring(from: NSMaxRange(snapshot.pastedRange))
+        )
+    }
+
     private static func correctedPastedText(
         in finalText: String,
         beforeText: String,

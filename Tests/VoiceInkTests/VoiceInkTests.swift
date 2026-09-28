@@ -167,4 +167,35 @@ struct VoiceInkTests {
         #expect(AutoLearnAIReviewer.firstJSONArray(in: "```json\n[{\"candidateID\":0}]\n```") == #"[{"candidateID":0}]"#)
         #expect(AutoLearnAIReviewer.firstJSONArray(in: "no decisions") == nil)
     }
+
+    @Test func autoLearnSeesSentChatMessageLeaveTheField() {
+        // A Chromium composer reads "\n" when empty, as the Claude app's does after Enter sends.
+        let pasted = "Add the setup with the Gracki and the Alama model to the README.md."
+        func snapshot(final: String) -> AutoLearnFieldSnapshot {
+            AutoLearnFieldSnapshot(
+                baselineFieldText: pasted + "\n",
+                finalFieldText: final,
+                pastedRange: NSRange(location: 0, length: pasted.utf16.count),
+                originalPastedText: pasted
+            )
+        }
+        #expect(FinalSnapshotDiffEngine.currentPastedText(in: snapshot(final: "\n")) == "")
+        #expect(
+            FinalSnapshotDiffEngine.currentPastedText(
+                in: snapshot(final: "Add the setup with the Groq key and the Ollama model to the README.md.\n")
+            ) == "Add the setup with the Groq key and the Ollama model to the README.md."
+        )
+    }
+
+    @MainActor
+    @Test func autoLearnTellsMisheardNamesFromEverydayWords() {
+        // Misheard names seen in real runs; automatic language detection accepted them as words.
+        for misheard in ["Versal", "Alama", "Gracki", "superbass"] {
+            #expect(!AutoLearnEverydayWordGuard.isEverydayWord(misheard), "\(misheard)")
+        }
+        for everyday in ["print", "grok"] {
+            #expect(AutoLearnEverydayWordGuard.isEverydayWord(everyday), "\(everyday)")
+        }
+        #expect(!AutoLearnEverydayWordGuard.isEverydayWord("super base"))
+    }
 }

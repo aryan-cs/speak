@@ -31,6 +31,22 @@ struct AutoLearnPasteToken: Hashable, Sendable {
     let id: UUID
 }
 
+enum AutoLearnCaptureOutcome: Sendable {
+    case captured(AutoLearnPasteToken)
+    /// The field may not show the paste yet; web editors update Accessibility late.
+    /// `detail` describes the field for diagnosis without including any of its text.
+    case retryable(reason: String, detail: String)
+    case rejected(reason: String)
+}
+
+enum AutoLearnFieldObservation: Sendable {
+    case unchanged
+    case edited
+    /// The pasted text is no longer in the field, e.g. a chat app sent and cleared it.
+    case detached
+    case unreadable
+}
+
 struct AutoLearnRevision: Sendable {
     let original: String
     let corrected: String
@@ -174,6 +190,10 @@ enum AutoLearnReviewSchedule: String, CaseIterable, Identifiable {
 enum AutoLearnLimits {
     static let observationDurationNanoseconds: UInt64 = 60_000_000_000
     static let verificationDelayNanoseconds: UInt64 = 120_000_000
+    /// Further waits before re-reading a field that does not show the paste yet (~2.3 s total).
+    static let captureRetryDelaysNanoseconds: [UInt64] = [200_000_000, 350_000_000, 600_000_000, 1_000_000_000]
+    static let fieldObservationIntervalNanoseconds: UInt64 = 250_000_000
+    static let reviewTimeoutSeconds: TimeInterval = 60
     static let focusChangeGraceNanoseconds: UInt64 = 250_000_000
     static let accessibilityTimeoutSeconds: Float = 0.20
     static let captureAccessibilityTimeoutSeconds: Float = 0.10

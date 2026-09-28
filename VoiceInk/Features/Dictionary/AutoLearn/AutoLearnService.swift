@@ -20,6 +20,7 @@ actor AutoLearnService {
     private var activeProcessID: pid_t?
     private var deadlineTask: Task<Void, Never>?
     private var focusFinalizationTask: Task<Void, Never>?
+    private var fieldObservationTask: Task<Void, Never>?
     private var reviewTask: Task<Void, Never>?
     private var reviewGeneration: UInt64 = 0
     private var claimedCandidateIDs = Set<UUID>()
@@ -207,7 +208,7 @@ actor AutoLearnService {
     func recordingDidStart() async {
         guard AutoLearnSettings.isEnabled else { return }
         if let token = activeToken {
-            await completeSession(token: token, persist: true)
+            await completeSession(token: token, persist: true, reason: "recording-started")
         }
         lifecycleGeneration &+= 1
         await discardActiveSession()
@@ -231,6 +232,8 @@ actor AutoLearnService {
         deadlineTask = nil
         focusFinalizationTask?.cancel()
         focusFinalizationTask = nil
+        fieldObservationTask?.cancel()
+        fieldObservationTask = nil
         focusObserver.stop()
         activeToken = nil
         activeGeneration = nil
@@ -241,8 +244,13 @@ actor AutoLearnService {
         deadlineTask = Task { [weak self] in
             if let previousToken {
                 // `finishSnapshot` drops the session, so the pending capture is
-                // cancelled before a new one can be started.
-                await self?.persistFinishedSession(token: previousToken)
+                // cancelled before a new one can be started. The new paste may already
+                // be in the same field, so the edits observed before it are used.
+                await self?.persistFinishedSession(
+                    token: previousToken,
+                    reason: "next-paste",
+                    preferObservedEdits: true
+                )
             }
             await self?.beginObservation(
                 text: text,
@@ -279,17 +287,45 @@ actor AutoLearnService {
         processID: pid_t,
         generation: UInt64
     ) async {
-        guard await sleep(nanoseconds: AutoLearnLimits.verificationDelayNanoseconds),
-            !Task.isCancelled,
-            lifecycleGeneration == generation,
-            AutoLearnSettings.isEnabled
-        else { return }
+        let delays = [AutoLearnLimits.verificationDelayNanoseconds]
+            + AutoLearnLimits.captureRetryDelaysNanoseconds
+        var capturedToken: AutoLearnPasteToken?
+        var lastRetryReason = ""
+        var lastRetryDetail = ""
+        for (attempt, delay) in delays.enumerated() {
+            guard await sleep(nanoseconds: delay),
+                !Task.isCancelled,
+                lifecycleGeneration == generation,
+                AutoLearnSettings.isEnabled
+            else {
+                if attempt > 0 { await accessibilityRuntime.abandonCapture(processID: processID) }
+                return
+            }
 
-        guard let token = await accessibilityRuntime.capturePastedText(
-                text: text,
-                processID: processID
+            switch await accessibilityRuntime.capturePastedText(text: text, processID: processID) {
+            case .captured(let token):
+                capturedToken = token
+                logger.notice(
+                    "Auto Learn watching pasted text characters=\(text.count, privacy: .public) attempt=\(attempt + 1, privacy: .public)"
+                )
+            case .retryable(let reason, let detail):
+                lastRetryReason = reason
+                lastRetryDetail = detail
+                continue
+            case .rejected(let reason):
+                logger.notice("Auto Learn capture rejected reason=\(reason, privacy: .public)")
+                return
+            }
+            break
+        }
+
+        guard let token = capturedToken else {
+            await accessibilityRuntime.abandonCapture(processID: processID)
+            logger.notice(
+                "Auto Learn capture rejected reason=\(lastRetryReason, privacy: .public) attempts=\(delays.count, privacy: .public) \(lastRetryDetail, privacy: .public)"
             )
-        else { return }
+            return
+        }
 
         guard lifecycleGeneration == generation,
             !Task.isCancelled,
@@ -307,10 +343,30 @@ actor AutoLearnService {
                 await AutoLearnService.shared.focusMayHaveChanged(token: token)
             }
         }
+        fieldObservationTask = Task { [weak self] in
+            await self?.observeField(token: token)
+        }
         scheduleDeadline(
             token: token,
             after: AutoLearnLimits.observationDurationNanoseconds
         )
+    }
+
+    /// Follows the user's edits in the field. Chat apps clear the field when the message is
+    /// sent, so the session finishes as soon as the pasted text leaves the field, using the
+    /// last edit seen before that.
+    private func observeField(token: AutoLearnPasteToken) async {
+        while await sleep(nanoseconds: AutoLearnLimits.fieldObservationIntervalNanoseconds),
+            !Task.isCancelled,
+            activeToken == token
+        {
+            guard let observation = await accessibilityRuntime.observeField(token: token) else { return }
+            guard observation == .detached, activeToken == token else { continue }
+
+            fieldObservationTask = nil
+            await completeSession(token: token, persist: true, reason: "pasted-text-left-field")
+            return
+        }
     }
 
     private func discardActiveSession() async {
@@ -320,6 +376,8 @@ actor AutoLearnService {
         deadlineTask = nil
         focusFinalizationTask?.cancel()
         focusFinalizationTask = nil
+        fieldObservationTask?.cancel()
+        fieldObservationTask = nil
         focusObserver.stop()
         activeToken = nil
         activeGeneration = nil
@@ -331,7 +389,7 @@ actor AutoLearnService {
         }
     }
 
-    private func completeSession(token: AutoLearnPasteToken, persist: Bool) async {
+    private func completeSession(token: AutoLearnPasteToken, persist: Bool, reason: String) async {
         guard activeToken == token, activeGeneration != nil else { return }
         deadlineTask?.cancel()
         activeToken = nil
@@ -340,19 +398,31 @@ actor AutoLearnService {
         deadlineTask = nil
         focusFinalizationTask?.cancel()
         focusFinalizationTask = nil
+        fieldObservationTask?.cancel()
+        fieldObservationTask = nil
         focusObserver.stop()
 
         if persist {
-            await persistFinishedSession(token: token)
+            await persistFinishedSession(token: token, reason: reason)
         } else {
             await accessibilityRuntime.discard(token: token)
         }
     }
 
-    private func persistFinishedSession(token: AutoLearnPasteToken) async {
+    private func persistFinishedSession(
+        token: AutoLearnPasteToken,
+        reason: String,
+        preferObservedEdits: Bool = false
+    ) async {
         let cancellationGeneration = snapshotCancellationGeneration
-        let snapshot = await accessibilityRuntime.finishSnapshot(token: token)
+        let snapshot = await accessibilityRuntime.finishSnapshot(
+            token: token,
+            preferObservedEdits: preferObservedEdits
+        )
         guard snapshotCancellationGeneration == cancellationGeneration else { return }
+        logger.notice(
+            "Auto Learn session finished reason=\(reason, privacy: .public) edited=\(snapshot != nil, privacy: .public)"
+        )
         await persistSnapshot(snapshot)
     }
 
@@ -366,7 +436,7 @@ actor AutoLearnService {
         }
 
         guard !(await accessibilityRuntime.targetIsFocused(token: token)) else { return }
-        await completeSession(token: token, persist: true)
+        await completeSession(token: token, persist: true, reason: "focus-left")
     }
 
     private func scheduleDeadline(token: AutoLearnPasteToken, after delay: UInt64) {
@@ -382,7 +452,7 @@ actor AutoLearnService {
 
     private func finalizeAtDeadline(token: AutoLearnPasteToken) async {
         guard activeToken == token, AutoLearnSettings.isEnabled else { return }
-        await completeSession(token: token, persist: true)
+        await completeSession(token: token, persist: true, reason: "deadline")
     }
 
     private func persistSnapshot(_ snapshot: AutoLearnFieldSnapshot?) async {
@@ -547,8 +617,16 @@ actor AutoLearnService {
                 return
             }
 
+            let decisions = await AutoLearnEverydayWordGuard.filter(reviewResult.reviewDecisions)
+            let heldCount = zip(reviewResult.reviewDecisions, decisions)
+                .filter { $0.learningAction != $1.learningAction }.count
+            if heldCount > 0 {
+                logger.notice(
+                    "Auto Learn held \(heldCount, privacy: .public) everyday-word replacement(s) until the same fix is seen again"
+                )
+            }
             let summary = try await replacementStore.apply(
-                reviewResult.reviewDecisions,
+                decisions,
                 candidates: candidates
             )
             try await pendingQueue.remove(candidateIDs)
@@ -646,6 +724,9 @@ actor AutoLearnService {
         }
     }
 
+    /// A brief confirmation that something new is in the dictionary.
+    private static let learnedNotificationDuration: TimeInterval = 1.5
+
     private func showLearnedNotification(for summary: AutoLearnMutationSummary) async {
         let corrections = summary.learnedCorrections
         guard !corrections.isEmpty else { return }
@@ -665,7 +746,7 @@ actor AutoLearnService {
                 NotificationManager.shared.showNotification(
                     title: notificationTitle,
                     type: .success,
-                    duration: 4,
+                    duration: Self.learnedNotificationDuration,
                     actionButton: (
                         label: String(localized: "Undo"),
                         action: {
@@ -677,10 +758,18 @@ actor AutoLearnService {
                 )
             }
         } else {
+            // Name what was added, so it is clear the dictionary changed.
+            let terms = corrections.map { "“\($0.correctedVocabularyTerm)”" }
+            var learnedTerms = ListFormatter.localizedString(byJoining: Array(terms.prefix(3)))
+            if terms.count > 3 {
+                learnedTerms += " +\(terms.count - 3)"
+            }
+            let notificationTitle = String(localized: "Learned \(learnedTerms)")
             await MainActor.run {
                 NotificationManager.shared.showNotification(
-                    title: String(localized: "Learned \(corrections.count) corrections"),
-                    type: .success
+                    title: notificationTitle,
+                    type: .success,
+                    duration: Self.learnedNotificationDuration
                 )
             }
         }

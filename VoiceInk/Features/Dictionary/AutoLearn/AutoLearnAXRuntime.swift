@@ -1,6 +1,5 @@
 import ApplicationServices
 import Foundation
-import OSLog
 
 final class AutoLearnAXRuntime: @unchecked Sendable {
     private struct Session {
@@ -10,27 +9,26 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
         let baselineFieldText: String
         let pastedRange: NSRange
         let pastedText: String
+        /// The latest field text that still contains an edited version of the paste. Chat apps
+        /// clear the field on send, so this is what the user's corrections looked like.
+        var lastEditedFieldText: String?
     }
 
     private let queue = DispatchQueue(label: AppConstants.logSubsystem + ".auto-learn.accessibility")
-    private let logger = Logger(
-        subsystem: AppConstants.logSubsystem,
-        category: "AutoLearnCapture"
-    )
     private let textReader = AutoLearnAXTextReader()
     private var session: Session?
 
-    func capturePastedText(text: String, processID: pid_t) async -> AutoLearnPasteToken? {
+    func capturePastedText(text: String, processID: pid_t) async -> AutoLearnCaptureOutcome {
         await perform { [self] in
             session = nil
 
-            guard AXIsProcessTrusted() else { return rejectCapture("accessibility-not-trusted") }
+            guard AXIsProcessTrusted() else { return .rejected(reason: "accessibility-not-trusted") }
             guard processID != ProcessInfo.processInfo.processIdentifier else {
-                return rejectCapture("target-is-voiceink")
+                return .rejected(reason: "target-is-speak")
             }
-            guard !text.isEmpty else { return rejectCapture("empty-pasted-text") }
+            guard !text.isEmpty else { return .rejected(reason: "empty-pasted-text") }
             guard text.count <= AutoLearnLimits.maximumPastedCharacters else {
-                return rejectCapture("pasted-text-too-large")
+                return .rejected(reason: "pasted-text-too-large")
             }
 
             var matchedReading: AutoLearnAXTextReading?
@@ -51,10 +49,12 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
                 }
             }
 
+            // Web accessibility stays enabled so a retry does not wait for the page's
+            // accessibility tree to be rebuilt; `abandonCapture` restores it.
             guard let reading = matchedReading, let pastedRange else {
-                textReader.restoreWebAccessibility(processID: processID, appElement: AXUIElementCreateApplication(processID))
-                return rejectCapture(
-                    lastReading == nil ? "focused-text-reading-unavailable" : "pasted-range-invalid"
+                return .retryable(
+                    reason: lastReading == nil ? "focused-text-reading-unavailable" : "pasted-range-invalid",
+                    detail: lastReading.map { captureDiagnostics(for: text, reading: $0) } ?? "readings=0"
                 )
             }
 
@@ -74,20 +74,90 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
                 pastedRange: pastedRange,
                 pastedText: observedPastedText
             )
-            return token
+            return .captured(token)
         }
     }
 
-    func finishSnapshot(token: AutoLearnPasteToken) async -> AutoLearnFieldSnapshot? {
+    /// Sizes and flags only, never field or pasted text, so logs stay private.
+    private func captureDiagnostics(for pastedText: String, reading: AutoLearnAXTextReading) -> String {
+        let core = pastedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedField = AutoLearnTextNormalizer.accessibilityComparable(reading.fieldText)
+        let normalizedCore = AutoLearnTextNormalizer.accessibilityComparable(core)
+        let selection = reading.selection.map { "\($0.location),\($0.length)" } ?? "none"
+        return [
+            "fieldUTF16=\(reading.fieldText.utf16.count)",
+            "pastedUTF16=\(pastedText.utf16.count)",
+            "selection=\(selection)",
+            "containsExact=\(reading.fieldText.contains(core))",
+            "containsNormalized=\(!normalizedCore.isEmpty && normalizedField.contains(normalizedCore))",
+            "source=\(reading.source)",
+            "focus=\(reading.focusSource)",
+        ].joined(separator: " ")
+    }
+
+    /// Restores web accessibility after every capture attempt for a paste has failed.
+    func abandonCapture(processID: pid_t) async {
+        await perform { [self] in
+            guard session == nil else { return }
+            textReader.restoreWebAccessibility(
+                processID: processID,
+                appElement: AXUIElementCreateApplication(processID)
+            )
+        }
+    }
+
+    /// Reads the field once during observation and remembers the latest edited version of the
+    /// paste, so the corrections survive a chat app clearing the field when the message is sent.
+    func observeField(token: AutoLearnPasteToken) async -> AutoLearnFieldObservation? {
+        await perform { [self] in
+            guard var active = session, active.token == token else { return nil }
+            guard let value = textReader.textValue(from: active.targetElement),
+                value.text.utf16.count <= AutoLearnLimits.maximumFieldUTF16Length
+            else {
+                return .unreadable
+            }
+
+            switch pastedTextState(in: value.text, for: active) {
+            case .missing:
+                return .detached
+            case .unchanged:
+                // An edit that was undone no longer counts.
+                active.lastEditedFieldText = nil
+                session = active
+                return .unchanged
+            case .edited:
+                active.lastEditedFieldText = value.text
+                session = active
+                return .edited
+            }
+        }
+    }
+
+    /// Ends the session and returns the field as the user left it. The live field wins while it
+    /// still contains the paste; otherwise the last observed edit is used. `preferObservedEdits`
+    /// skips the live read, for when a newer paste may already be in the field.
+    func finishSnapshot(
+        token: AutoLearnPasteToken,
+        preferObservedEdits: Bool = false
+    ) async -> AutoLearnFieldSnapshot? {
         await perform { [self] in
             guard let active = session, active.token == token else { return nil }
             session = nil
 
             defer { textReader.restoreWebAccessibility(processID: AXProcessID(active.appElement), appElement: active.appElement) }
-            guard let finalTextValue = textReader.textValue(from: active.targetElement) else { return nil }
-            let finalFieldText = finalTextValue.text
-            guard finalFieldText.utf16.count <= AutoLearnLimits.maximumFieldUTF16Length else { return nil }
-            guard !textIsExactlyEqual(finalFieldText, active.baselineFieldText) else { return nil }
+
+            var finalFieldText = active.lastEditedFieldText
+            if !preferObservedEdits,
+                let liveText = textReader.textValue(from: active.targetElement)?.text,
+                liveText.utf16.count <= AutoLearnLimits.maximumFieldUTF16Length,
+                pastedTextState(in: liveText, for: active) != .missing
+            {
+                finalFieldText = liveText
+            }
+
+            guard let finalFieldText,
+                !textIsExactlyEqual(finalFieldText, active.baselineFieldText)
+            else { return nil }
 
             return AutoLearnFieldSnapshot(
                 baselineFieldText: active.baselineFieldText,
@@ -96,6 +166,29 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
                 originalPastedText: active.pastedText
             )
         }
+    }
+
+    private enum PastedTextState {
+        case unchanged
+        case edited
+        case missing
+    }
+
+    private func pastedTextState(in fieldText: String, for active: Session) -> PastedTextState {
+        let snapshot = AutoLearnFieldSnapshot(
+            baselineFieldText: active.baselineFieldText,
+            finalFieldText: fieldText,
+            pastedRange: active.pastedRange,
+            originalPastedText: active.pastedText
+        )
+        guard let current = FinalSnapshotDiffEngine.currentPastedText(in: snapshot) else {
+            return .missing
+        }
+        let normalizedCurrent = AutoLearnTextNormalizer.accessibilityComparable(current)
+        // A cleared field still matches an empty span between the surrounding text.
+        guard !normalizedCurrent.isEmpty else { return .missing }
+        let normalizedOriginal = AutoLearnTextNormalizer.accessibilityComparable(active.pastedText)
+        return textIsExactlyEqual(normalizedCurrent, normalizedOriginal) ? .unchanged : .edited
     }
 
     func targetIsFocused(token: AutoLearnPasteToken) async -> Bool {
@@ -123,13 +216,6 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
 
     private func textIsExactlyEqual(_ lhs: String, _ rhs: String) -> Bool {
         lhs.utf16.elementsEqual(rhs.utf16)
-    }
-
-    private func rejectCapture(_ reason: String) -> AutoLearnPasteToken? {
-        logger.notice(
-            "Auto Learn capture rejected reason=\(reason, privacy: .public)"
-        )
-        return nil
     }
 
     private func focusedElementMatches(_ targetElement: AXUIElement, in appElement: AXUIElement) -> Bool {

@@ -784,7 +784,9 @@ class AIService: ObservableObject {
             messages: [.user(payload)],
             systemPrompt: systemPrompt,
             localUserPrompt: payload,
-            timeout: EnhancementRequestSettings.timeout
+            // Review runs in the background after the paste, so nobody waits on it. A local
+            // model that Ollama unloaded while idle needs longer than an interactive request.
+            timeout: max(EnhancementRequestSettings.timeout, AutoLearnLimits.reviewTimeoutSeconds)
         ).text
     }
 

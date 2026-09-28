@@ -232,7 +232,10 @@ final class AutoLearnAXTextReader {
         guard let previousValue = copyBool(Self.manualAccessibilityAttribute, from: appElement) else {
             return
         }
-        manualAccessibilityPreviousValue[processID] = previousValue
+        // Keep the value from before the first enable, so a retry does not record our own `true`.
+        if manualAccessibilityPreviousValue[processID] == nil {
+            manualAccessibilityPreviousValue[processID] = previousValue
+        }
         let result = AXUIElementSetAttributeValue(
             appElement,
             Self.manualAccessibilityAttribute,
