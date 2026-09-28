@@ -30,6 +30,13 @@ class NotificationManager {
             SoundManager.shared.playEscSound()
         }
         
+        let usesExternalGlass: Bool
+        if #available(macOS 26.0, *) {
+            usesExternalGlass = true
+        } else {
+            usesExternalGlass = false
+        }
+
         let notificationView = AppNotificationView(
             title: title,
             type: type,
@@ -40,7 +47,8 @@ class NotificationManager {
                 }
             },
             onTap: onTap,
-            actionButton: actionButton
+            actionButton: actionButton,
+            usesExternalGlass: usesExternalGlass
         )
         let hostingController = NSHostingController(rootView: notificationView)
         let size = hostingController.view.fittingSize
@@ -51,8 +59,17 @@ class NotificationManager {
             backing: .buffered,
             defer: false
         )
-        
-        panel.contentView = hostingController.view
+
+        if #available(macOS 26.0, *) {
+            // Same glass as the recorder pill, darkened so white text stays legible over light documents.
+            panel.contentView = GlassHostView(
+                contentView: hostingController.view,
+                cornerRadius: size.height / 2,
+                tintColor: NSColor.black.withAlphaComponent(0.45)
+            )
+        } else {
+            panel.contentView = hostingController.view
+        }
         panel.isFloatingPanel = true
         panel.level = NSWindow.Level.mainMenu
         panel.backgroundColor = NSColor.clear

@@ -2,10 +2,9 @@
 // Build configuration for local/unsigned builds (no Apple Developer certificate required).
 // Used by `make local` — does NOT affect Debug or Release configurations.
 
-// Ad-hoc signing (works without a developer account)
-CODE_SIGN_IDENTITY = -
+// CODE_SIGN_IDENTITY and DEVELOPMENT_TEAM come from the Makefile (ad-hoc by default).
+// They must not be set here: -xcconfig values override command-line settings.
 CODE_SIGN_STYLE = Manual
-DEVELOPMENT_TEAM =
 PROVISIONING_PROFILE_SPECIFIER =
 
 // Entitlements are set via absolute path in the Makefile command line

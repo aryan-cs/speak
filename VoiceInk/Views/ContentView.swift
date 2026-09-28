@@ -120,13 +120,11 @@ struct ContentView: View {
                 Section {
                     // App Header
                     HStack(spacing: 6) {
-                        if let appIcon = NSImage(named: "AppIcon") {
-                            Image(nsImage: appIcon)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 28, height: 28)
-                                .cornerRadius(8)
-                        }
+                        Image("appIconImage")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 28, height: 28)
+                            .cornerRadius(8)
 
                         Text("Speak")
                             .font(.system(size: 14, weight: .semibold))

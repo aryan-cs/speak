@@ -189,6 +189,8 @@ struct WordReplacementView: View {
     private func addReplacement() {
         let original = originalWord.trimmingCharacters(in: .whitespacesAndNewlines)
         let replacement = replacementWord.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Pressing return in the replacement field with no original would otherwise clear both fields without saving.
+        guard !original.isEmpty, !replacement.isEmpty else { return }
         if let error = DictionaryService.addWordReplacement(original: original, replacement: replacement, existing: Array(wordReplacements), context: modelContext) {
             alertMessage = error
             showAlert = true

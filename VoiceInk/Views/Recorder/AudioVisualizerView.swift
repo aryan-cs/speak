@@ -5,43 +5,36 @@ struct AudioVisualizer: View {
     let color: Color
     let isActive: Bool
 
-    private let barCount = 15
+    // Frequency bands mirrored around the center: lowest band in the middle, highest at both edges.
+    private let barCount = SpectrumAnalyzer.bandCount * 2 - 1
     private let barWidth: CGFloat = 3
     private let barSpacing: CGFloat = 2
     private let minHeight: CGFloat = 4
     private let maxHeight: CGFloat = 28
 
-    private let phases: [Double]
-
-    init(audioMeter: AudioMeter, color: Color, isActive: Bool) {
-        self.audioMeter = audioMeter
-        self.color = color
-        self.isActive = isActive
-        self.phases = (0..<barCount).map { Double($0) * 0.4 }
-    }
-
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.016)) { context in
-            HStack(spacing: barSpacing) {
-                ForEach(0..<barCount, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: barWidth / 2)
-                        .fill(color.opacity(0.85))
-                        .frame(width: barWidth, height: barHeight(for: index, at: context.date))
-                }
+        HStack(spacing: barSpacing) {
+            ForEach(0..<barCount, id: \.self) { index in
+                RoundedRectangle(cornerRadius: barWidth / 2)
+                    .fill(color.opacity(0.85))
+                    .frame(width: barWidth, height: barHeight(for: index))
             }
         }
     }
 
-    private func barHeight(for index: Int, at date: Date) -> CGFloat {
+    private func barHeight(for index: Int) -> CGFloat {
         guard isActive else { return minHeight }
 
-        let time = date.timeIntervalSince1970
-        let amplitude = max(0, min(1, pow(audioMeter.averagePower, 0.7))) // boosted for visibility
-        let wave = sin(time * 8 + phases[index]) * 0.5 + 0.5
-        let centerDistance = abs(Double(index) - Double(barCount) / 2) / Double(barCount / 2)
-        let centerBoost = 1.0 - (centerDistance * 0.4)
+        let bands = audioMeter.bands
+        let level: Double
+        if bands.isEmpty {
+            level = audioMeter.averagePower
+        } else {
+            let distanceFromCenter = abs(index - barCount / 2)
+            level = bands[min(distanceFromCenter, bands.count - 1)]
+        }
 
-        return max(minHeight, minHeight + CGFloat(amplitude * wave * centerBoost) * (maxHeight - minHeight))
+        return minHeight + CGFloat(max(0, min(1, level))) * (maxHeight - minHeight)
     }
 }
 

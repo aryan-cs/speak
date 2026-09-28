@@ -60,6 +60,8 @@ struct VoiceInkApp: App {
         // Attempt 1: Try persistent storage
         if let persistentContainer = Self.createPersistentContainer(schema: schema, logger: logger) {
             resolvedContainer = persistentContainer
+            // Only migrate into persistent storage; the in-memory fallback would drop the entries and still mark the migration done.
+            LegacyDictionaryMigrationService.shared.runIfNeeded(modelContainer: persistentContainer)
         }
         // Attempt 2: Try in-memory storage
         else if let memoryContainer = Self.createInMemoryContainer(schema: schema, logger: logger) {

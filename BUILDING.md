@@ -63,6 +63,23 @@ Recording, quit Speak completely and run:
 open ~/Downloads/Speak.app
 ```
 
+### Keeping permissions across rebuilds
+
+macOS ties Accessibility and Screen Recording grants to the app's code
+signature. Ad-hoc builds get a new signature every time, so System Settings
+keeps showing Speak as enabled while the rebuilt app is denied. If you have an
+Apple Development certificate (any free Apple ID signed into Xcode provides
+one), sign local builds with it instead:
+
+```sh
+security find-identity -v -p codesigning   # find your identity; the team ID is its OU
+make local LOCAL_SIGN_IDENTITY="Apple Development: you@example.com (XXXXXXXXXX)" LOCAL_DEVELOPMENT_TEAM=TEAMID1234
+```
+
+After switching signing identities, remove Speak from Accessibility and Screen
+Recording in System Settings (the minus button) and grant access again once.
+Later rebuilds with the same identity keep those grants.
+
 ## Local Build Limitations
 
 Local builds are for personal use and testing. They intentionally do not match a

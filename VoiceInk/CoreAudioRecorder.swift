@@ -44,6 +44,17 @@ final class CoreAudioRecorder: @unchecked Sendable {
         return _peakPower
     }
 
+    // Per-frequency-band levels for the waveform (guarded by meterLock)
+    private var spectrumAnalyzer: SpectrumAnalyzer?
+    private var _bandLevels = [Float](repeating: 0, count: SpectrumAnalyzer.bandCount)
+
+    var bandLevels: [Float] {
+        meterLock.lock()
+        defer { meterLock.unlock() }
+        // Copy the storage so the audio thread's array stays uniquely owned and never reallocates.
+        return _bandLevels.withUnsafeBufferPointer { Array($0) }
+    }
+
     // Pre-allocated render buffer (to avoid malloc in real-time callback)
     private var renderBuffer: UnsafeMutablePointer<Float32>?
     private var renderBufferSize: UInt32 = 0
@@ -144,9 +155,11 @@ final class CoreAudioRecorder: @unchecked Sendable {
         recordingURL = nil
 
         // Reset meters
+        spectrumAnalyzer = nil
         meterLock.lock()
         _averagePower = -160.0
         _peakPower = -160.0
+        for band in _bandLevels.indices { _bandLevels[band] = 0 }
         meterLock.unlock()
     }
 
@@ -258,9 +271,10 @@ final class CoreAudioRecorder: @unchecked Sendable {
             conversionBufferSize = maxOutputFrames
         }
 
-        // Update stored format
+        // Update stored format (the unit is stopped, so the audio thread isn't using the analyzer)
         deviceFormat = newDeviceFormat
         currentDeviceID = newDeviceID
+        spectrumAnalyzer = SpectrumAnalyzer(sampleRate: newDeviceFormat.mSampleRate)
 
         // Step 7: Reinitialize and restart
         status = AudioUnitInitialize(unit)
@@ -439,6 +453,8 @@ final class CoreAudioRecorder: @unchecked Sendable {
         let maxOutputFrames = UInt32(Double(maxFrames) * (outputFormat.mSampleRate / deviceFormat.mSampleRate)) + 1
         conversionBuffer = UnsafeMutablePointer<Int16>.allocate(capacity: Int(maxOutputFrames))
         conversionBufferSize = maxOutputFrames
+
+        spectrumAnalyzer = SpectrumAnalyzer(sampleRate: deviceFormat.mSampleRate)
     }
 
     private func setupInputCallback() throws {
@@ -590,6 +606,7 @@ final class CoreAudioRecorder: @unchecked Sendable {
 
         // Calculate audio meters from input buffer
         calculateMeters(from: &bufferList, frameCount: inNumberFrames)
+        updateBandLevels(from: &bufferList, frameCount: inNumberFrames)
 
         // Convert and write to file
         convertAndWriteToFile(inputBuffer: &bufferList, frameCount: inNumberFrames)
@@ -625,6 +642,22 @@ final class CoreAudioRecorder: @unchecked Sendable {
         meterLock.lock()
         _averagePower = avgDb
         _peakPower = peakDb
+        meterLock.unlock()
+    }
+
+    private func updateBandLevels(from bufferList: inout AudioBufferList, frameCount: UInt32) {
+        guard let analyzer = spectrumAnalyzer, let data = bufferList.mBuffers.mData else { return }
+
+        analyzer.process(
+            data.assumingMemoryBound(to: Float32.self),
+            frameCount: Int(frameCount),
+            channelCount: Int(deviceFormat.mChannelsPerFrame)
+        )
+
+        meterLock.lock()
+        for band in 0..<SpectrumAnalyzer.bandCount {
+            _bandLevels[band] = analyzer.levels[band]
+        }
         meterLock.unlock()
     }
 

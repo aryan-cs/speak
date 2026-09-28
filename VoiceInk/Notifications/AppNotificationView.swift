@@ -7,7 +7,9 @@ struct AppNotificationView: View {
     let onClose: () -> Void
     let onTap: (() -> Void)?
     var actionButton: (label: String, action: () -> Void)? = nil
-    
+    /// When true the hosting panel supplies the Liquid Glass background (macOS 26+), matching the recorder pill.
+    var usesExternalGlass: Bool = false
+
     @State private var progress: Double = 1.0
     @State private var timer: Timer?
 
@@ -16,40 +18,21 @@ struct AppNotificationView: View {
         case warning
         case info
         case success
+    }
 
-        var iconName: String {
-            switch self {
-            case .error: return "xmark.octagon.fill"
-            case .warning: return "exclamationmark.triangle.fill"
-            case .info: return "info.circle.fill"
-            case .success: return "checkmark.circle.fill"
-            }
-        }
-
-        var iconColor: Color {
-            switch self {
-            case .error: return .red
-            case .warning: return .yellow
-            case .info: return .accentColor
-            case .success: return .green
-            }
-        }
+    // Capsule, like the recorder pill it sits above.
+    private var shape: Capsule {
+        Capsule(style: .continuous)
     }
 
     var body: some View {
         ZStack {
             HStack(alignment: .center, spacing: 12) {
-                // Type icon
-                Image(systemName: type.iconName)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(type.iconColor)
-                    .frame(width: 20, height: 20)
-
                 // Single message text
                 Text(title)
                     .font(.system(size: 12))
                     .fontWeight(.medium)
-                    .foregroundColor(.white)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
@@ -62,11 +45,10 @@ struct AppNotificationView: View {
                     }) {
                         Text(actionButton.label)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(type.iconColor)
+                            .foregroundStyle(.primary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(type.iconColor.opacity(0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .background(.quaternary, in: Capsule(style: .continuous))
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
@@ -74,7 +56,7 @@ struct AppNotificationView: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 .buttonStyle(PlainButtonStyle())
                 .frame(width: 16, height: 16)
@@ -83,49 +65,50 @@ struct AppNotificationView: View {
             .padding(.vertical, 12)
         }
         .frame(minWidth: 220, maxWidth: 750, minHeight: 44)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.clear)
-                .background(
-                    ZStack {
-                        // Base dark background
-                        Color.black.opacity(0.9)
-                        
-                        // Subtle gradient overlay
-                        LinearGradient(
-                            colors: [
-                                Color.black.opacity(0.95),
-                                Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.9)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        
-                        // Very subtle visual effect for depth
-                        VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
-                            .opacity(0.05)
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                )
-        )
-        .overlay(
-            // Subtle inner border
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
-        )
+        .background {
+            if !usesExternalGlass {
+                ZStack {
+                    // Base dark background
+                    Color.black.opacity(0.9)
+
+                    // Subtle gradient overlay
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.95),
+                            Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.9)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    // Very subtle visual effect for depth
+                    VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
+                        .opacity(0.05)
+                }
+                .clipShape(shape)
+            }
+        }
+        .overlay {
+            // Subtle inner border; the glass host draws its own edge highlight.
+            if !usesExternalGlass {
+                shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+            }
+        }
         .overlay(
             VStack {
                 Spacer()
                 GeometryReader { geometry in
                     Rectangle()
-                        .fill(type.iconColor.opacity(0.8))
+                        .fill(.tertiary)
                         .frame(width: geometry.size.width * max(0, progress), height: 2)
                         .animation(.linear(duration: 0.1), value: progress)
                 }
                 .frame(height: 2)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(shape)
         )
+        // Both backgrounds are dark surfaces, so resolve the semantic styles for dark regardless of system appearance.
+        .environment(\.colorScheme, .dark)
         .onAppear {
             startProgressTimer()
         }

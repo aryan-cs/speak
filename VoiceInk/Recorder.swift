@@ -219,6 +219,8 @@ class Recorder: NSObject, ObservableObject {
         // Sample audio levels (thread-safe read)
         let averagePower = recorder.averagePower
         let peakPower = recorder.peakPower
+        // Already smoothed by the analyzer with time-based attack/release.
+        let bands = recorder.bandLevels.map(Double.init)
 
         // Normalize values
         let minVisibleDb: Float = -60.0
@@ -246,7 +248,7 @@ class Recorder: NSObject, ObservableObject {
         smoothedValuesLock.lock()
         smoothedAverage = smoothedAverage * 0.6 + normalizedAverage * 0.4
         smoothedPeak = smoothedPeak * 0.6 + normalizedPeak * 0.4
-        let newAudioMeter = AudioMeter(averagePower: Double(smoothedAverage), peakPower: Double(smoothedPeak))
+        let newAudioMeter = AudioMeter(averagePower: Double(smoothedAverage), peakPower: Double(smoothedPeak), bands: bands)
         smoothedValuesLock.unlock()
 
         // Dispatch to main queue for UI updates (more efficient than Task)
@@ -270,4 +272,6 @@ class Recorder: NSObject, ObservableObject {
 struct AudioMeter: Equatable {
     let averagePower: Double
     let peakPower: Double
+    /// Level (0...1) per frequency band, lowest first; empty when no spectrum is available.
+    var bands: [Double] = []
 }

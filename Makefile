@@ -4,6 +4,12 @@ WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 
+# Ad-hoc signing ("-") changes the app's signature on every build, so macOS drops
+# Accessibility/Screen Recording grants after each rebuild. Pass a stable identity
+# (e.g. your "Apple Development: ..." certificate and its team ID) to keep them.
+LOCAL_SIGN_IDENTITY ?= -
+LOCAL_DEVELOPMENT_TEAM ?=
+
 .PHONY: all clean whisper setup build local release-macos check healthcheck help dev run
 
 # Default target
@@ -52,10 +58,10 @@ local: check setup
 	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
-		CODE_SIGN_IDENTITY="-" \
+		CODE_SIGN_IDENTITY="$(LOCAL_SIGN_IDENTITY)" \
 		CODE_SIGNING_REQUIRED=NO \
 		CODE_SIGNING_ALLOWED=YES \
-		DEVELOPMENT_TEAM="" \
+		DEVELOPMENT_TEAM="$(LOCAL_DEVELOPMENT_TEAM)" \
 		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceInk.local.entitlements \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
 		build
