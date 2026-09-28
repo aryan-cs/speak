@@ -10,18 +10,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let menuBarManager, !menuBarManager.isMenuBarOnly {
-            if WindowManager.shared.currentMainWindow() != nil {
-                WindowManager.shared.showMainWindow()
-                return false
-            }
+        guard let menuBarManager else { return true }
+        let showsDockIcon = !menuBarManager.isMenuBarOnly
+        // Without a Dock or menu bar icon, opening Speak again is the way back to its window.
+        guard showsDockIcon || !MenuBarIconPreference.isVisible else { return true }
 
-            WindowManager.shared.prepareForUserRequestedMainWindow()
-            NotificationCenter.default.post(name: .showMainWindowRequested, object: nil)
+        if !showsDockIcon {
+            menuBarManager.activateForPresentedWindow()
+        }
+        if WindowManager.shared.currentMainWindow() != nil {
+            WindowManager.shared.showMainWindow()
             return false
         }
 
-        return true
+        WindowManager.shared.prepareForUserRequestedMainWindow()
+        NotificationCenter.default.post(name: .showMainWindowRequested, object: nil)
+        // With the menu bar icon hidden no bridge may be listening, so SwiftUI reopens the window.
+        return !MenuBarIconPreference.isVisible
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

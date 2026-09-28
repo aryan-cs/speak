@@ -16,7 +16,7 @@ final class NotificationManager {
         type: AppNotificationView.NotificationType,
         duration: TimeInterval = 3.0,
         onTap: (() -> Void)? = nil,
-        actionButton: (label: String, action: () -> Void)? = nil
+        actionButton: (label: String, systemImage: String, action: () -> Void)? = nil
     ) {
         dismissTimer?.invalidate()
         dismissTimer = nil
@@ -64,11 +64,10 @@ final class NotificationManager {
         )
 
         if #available(macOS 26.0, *) {
-            // Same glass as the recorder pill, darkened so white text stays legible over light documents.
+            // Exactly the recorder pill's glass: no tint, capsule corners.
             panel.contentView = GlassHostView(
                 contentView: hostingController.view,
-                cornerRadius: size.height / 2,
-                tintColor: NSColor.black.withAlphaComponent(0.45)
+                cornerRadius: size.height / 2
             )
         } else {
             panel.contentView = hostingController.view

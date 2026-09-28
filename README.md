@@ -55,6 +55,7 @@ How it works:
 **General**
 
 - Settings → General → Hide Dock Icon: on. Speak lives in the menu bar.
+- To remove the menu bar icon too, choose Hide Menu Bar Icon from its menu, or turn off Settings → General → Show Menu Bar Icon. With both hidden, open Speak again from Spotlight or Applications to get its window back.
 - Speak pastes with ⌘V and adds a trailing space after each dictation.
 
 ### build from source

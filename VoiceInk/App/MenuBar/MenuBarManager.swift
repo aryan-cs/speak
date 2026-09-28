@@ -89,3 +89,27 @@ class MenuBarManager: ObservableObject {
         }
     }
 }
+
+/// Whether Speak's icon is in the menu bar; hidden, Speak is reached by opening it again.
+/// The app scene owns the live value as plain state: binding `MenuBarExtra` to an
+/// `ObservableObject` republishes during SwiftUI's own updates and never settles.
+enum MenuBarIconPreference {
+    static let key = "IsMenuBarIconVisible"
+
+    static var isVisible: Bool {
+        get { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: key) }
+    }
+}
+
+private struct MenuBarIconVisibilityKey: EnvironmentKey {
+    static let defaultValue: Binding<Bool> = .constant(true)
+}
+
+extension EnvironmentValues {
+    /// The app scene's menu bar icon state, for the menu and Settings to change.
+    var menuBarIconVisibility: Binding<Bool> {
+        get { self[MenuBarIconVisibilityKey.self] }
+        set { self[MenuBarIconVisibilityKey.self] = newValue }
+    }
+}

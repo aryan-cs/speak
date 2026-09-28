@@ -290,7 +290,8 @@ private struct ModelPreviewRowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(row.value)
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .font(.system(size: 12, weight: .bold))
+                .monospacedDigit()
                 .foregroundStyle(AppTheme.Text.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.76)

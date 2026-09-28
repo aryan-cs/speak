@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var updaterViewModel: UpdaterViewModel
     @EnvironmentObject private var menuBarManager: MenuBarManager
+    @Environment(\.menuBarIconVisibility) private var isMenuBarIconVisible
     @EnvironmentObject private var recordingShortcutManager: RecordingShortcutManager
     @EnvironmentObject private var recorderUIManager: RecorderUIManager
     @EnvironmentObject private var transcriptionModelManager: TranscriptionModelManager
@@ -222,6 +223,7 @@ struct SettingsView: View {
 
             Section("General") {
                 Toggle("Hide Dock Icon", isOn: $menuBarManager.isMenuBarOnly)
+                Toggle("Show Menu Bar Icon", isOn: isMenuBarIconVisible)
 
                 Toggle(
                     String(localized: "Launch at Login"),

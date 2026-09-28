@@ -307,7 +307,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                     title: failure.title,
                                     type: .error,
                                     duration: 7.0,
-                                    actionButton: (failure.actionLabel, failure.action)
+                                    actionButton: (failure.actionLabel, "gearshape", failure.action)
                                 )
                                 await self.recorder.stopRecording()
                                 try? FileManager.default.removeItem(at: permanentURL)
@@ -413,7 +413,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                     title: failure.title,
                                     type: .error,
                                     duration: 7.0,
-                                    actionButton: (failure.actionLabel, failure.action)
+                                    actionButton: (failure.actionLabel, "gearshape", failure.action)
                                 )
                             } else {
                                 NotificationManager.shared.showNotification(
@@ -502,7 +502,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
             title: title,
             type: .error,
             duration: 7.0,
-            actionButton: (actionLabel, action)
+            actionButton: (actionLabel, "gearshape", action)
         )
         await recorderUIManager?.dismissRecorderPanel()
     }

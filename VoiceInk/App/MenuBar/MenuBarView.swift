@@ -8,6 +8,7 @@ struct MenuBarView: View {
     @EnvironmentObject var whisperModelManager: WhisperModelManager
     @EnvironmentObject var recordingShortcutManager: RecordingShortcutManager
     @EnvironmentObject var menuBarManager: MenuBarManager
+    @Environment(\.menuBarIconVisibility) private var isMenuBarIconVisible
     @EnvironmentObject var mainWindowNavigation: MainWindowNavigation
     @EnvironmentObject var updaterViewModel: UpdaterViewModel
     @EnvironmentObject var enhancementService: AIEnhancementService
@@ -138,6 +139,15 @@ struct MenuBarView: View {
                 }
             }
             .keyboardShortcut("d", modifiers: [.command, .shift])
+
+            Button("Hide Menu Bar Icon") {
+                isMenuBarIconVisible.wrappedValue = false
+                NotificationManager.shared.showNotification(
+                    title: String(localized: "Menu bar icon hidden. Open Speak again to show its window."),
+                    type: .info,
+                    duration: 4
+                )
+            }
 
             Toggle(
                 "Launch at Login",

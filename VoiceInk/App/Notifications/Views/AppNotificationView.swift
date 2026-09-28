@@ -6,12 +6,10 @@ struct AppNotificationView: View {
     let duration: TimeInterval
     let onClose: () -> Void
     let onTap: (() -> Void)?
-    var actionButton: (label: String, action: () -> Void)? = nil
+    /// Shown as an icon in the pill's round control style; the label is its tooltip.
+    var actionButton: (label: String, systemImage: String, action: () -> Void)? = nil
     /// When true the hosting panel supplies the Liquid Glass background (macOS 26+), matching the recorder pill.
     var usesExternalGlass: Bool = false
-
-    @State private var progress: Double = 1.0
-    @State private var timer: Timer?
 
     enum NotificationType {
         case error
@@ -20,120 +18,82 @@ struct AppNotificationView: View {
         case success
     }
 
+    /// A slimmer capsule than the 40 pt recorder pill, in the same glass and controls.
+    static let defaultHeight: CGFloat = 30
+    var height: CGFloat = Self.defaultHeight
+    /// The pill's 21 pt controls, scaled down for shorter capsules.
+    private var controlSize: CGFloat { min(21, height - 8) }
+    /// Gap between the controls and the capsule's end, repeated between the controls.
+    private var controlInset: CGFloat { max(4, (height - controlSize) / 2) }
+
     // Capsule, like the recorder pill it sits above.
     private var shape: Capsule {
         Capsule(style: .continuous)
     }
 
     var body: some View {
-        ZStack {
-            HStack(alignment: .center, spacing: 12) {
-                // Single message text
-                Text(title)
-                    .font(.system(size: 12))
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+        HStack(alignment: .center, spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
 
-                Spacer()
+            Spacer(minLength: 0)
 
+            HStack(spacing: controlInset) {
                 if let actionButton {
                     Button(action: {
                         actionButton.action()
                         onClose()
                     }) {
-                        Text(actionButton.label)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(.quaternary, in: Capsule(style: .continuous))
+                        // The recorder pill's control style.
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.13))
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
+                                )
+
+                            Image(systemName: actionButton.systemImage)
+                                .font(.system(size: controlSize * 0.43, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.86))
+                        }
+                        .frame(width: controlSize, height: controlSize)
+                        .contentShape(Circle())
                     }
-                    .buttonStyle(PlainButtonStyle())
+                    .buttonStyle(.plain)
+                    .help(actionButton.label)
+                    .accessibilityLabel(actionButton.label)
                 }
 
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .frame(width: 16, height: 16)
+                RecorderCloseButton(action: onClose)
+                    .scaleEffect(controlSize / 21)
+                    .frame(width: controlSize, height: controlSize)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
-        .frame(minWidth: 220, maxWidth: 750, minHeight: 44)
+        // Controls sit concentric with the capsule's end.
+        .padding(.leading, max(12, height * 0.45))
+        .padding(.trailing, controlInset)
+        .frame(minWidth: 180, maxWidth: 750, minHeight: height)
         .background {
+            // Before Liquid Glass, a dark surface stands in for the pill's glass.
             if !usesExternalGlass {
                 ZStack {
-                    // Base dark background
                     Color.black.opacity(0.9)
-
-                    // Subtle gradient overlay
-                    LinearGradient(
-                        colors: [
-                            Color.black.opacity(0.95),
-                            Color(red: 0.15, green: 0.15, blue: 0.15).opacity(0.9)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-
-                    // Very subtle visual effect for depth
                     VisualEffectView(material: .hudWindow, blendingMode: .withinWindow)
                         .opacity(0.05)
                 }
                 .clipShape(shape)
+                .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
             }
         }
-        .overlay {
-            // Subtle inner border; the glass host draws its own edge highlight.
-            if !usesExternalGlass {
-                shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
-            }
-        }
-        .overlay(
-            VStack {
-                Spacer()
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(.tertiary)
-                        .frame(width: geometry.size.width * max(0, progress), height: 2)
-                        .animation(.linear(duration: 0.1), value: progress)
-                }
-                .frame(height: 2)
-            }
-            .clipShape(shape)
-        )
-        // Both backgrounds are dark surfaces, so resolve the semantic styles for dark regardless of system appearance.
-        .environment(\.colorScheme, .dark)
-        .onAppear {
-            startProgressTimer()
-        }
-        .onDisappear {
-            timer?.invalidate()
-        }
+        .contentShape(shape)
         .onTapGesture {
             if let onTap = onTap {
                 onTap()
                 onClose()
-            }
-        }
-    }
-
-    private func startProgressTimer() {
-        let updateInterval: TimeInterval = 0.1
-        let totalSteps = duration / updateInterval
-        let stepDecrement = 1.0 / totalSteps
-
-        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { _ in
-            if progress > 0 {
-                progress = max(0, progress - stepDecrement)
-            } else {
-                timer?.invalidate()
-                timer = nil
             }
         }
     }

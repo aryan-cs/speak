@@ -219,7 +219,8 @@ func progressDotsWithNumber(value: Double) -> some View {
     HStack(spacing: 4) {
         progressDots(value: value)
         Text(String(format: "%.1f", value))
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .font(.system(size: 10, weight: .medium))
+            .monospacedDigit()
             .foregroundColor(Color(.secondaryLabelColor))
     }
 }

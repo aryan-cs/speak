@@ -28290,12 +28290,12 @@
         }
       }
     },
-    "Using: %@" : {
+    "Using %@" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Verwendet: %@"
+            "value" : "Verwendet wird %@"
           }
         },
         "fr" : {
@@ -28307,7 +28307,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在使用：%@"
+            "value" : "正在使用%@"
           }
         }
       }

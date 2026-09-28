@@ -42,7 +42,7 @@ extension Recorder {
 
         if resolution.fellBackFromClosedInternalMicrophone {
             NotificationManager.shared.showNotification(
-                title: String(format: String(localized: "Using: %@"), deviceName),
+                title: String(format: String(localized: "Using %@"), deviceName),
                 type: .info
             )
             return
@@ -51,7 +51,7 @@ extension Recorder {
         let lastDeviceID = UserDefaults.standard.string(forKey: "lastUsedMicrophoneDeviceID")
         guard String(deviceID) != lastDeviceID else { return }
         NotificationManager.shared.showNotification(
-            title: String(format: String(localized: "Using: %@"), deviceName),
+            title: String(format: String(localized: "Using %@"), deviceName),
             type: .info
         )
     }
@@ -110,7 +110,7 @@ extension Recorder {
             title: presentation.title,
             type: .error,
             duration: 7.0,
-            actionButton: (presentation.actionLabel, presentation.action)
+            actionButton: (presentation.actionLabel, "gearshape", presentation.action)
         )
     }
 

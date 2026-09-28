@@ -26,8 +26,8 @@ struct VoiceInkApp: App {
     @StateObject private var activeWindowService = ActiveWindowService.shared
     @AppStorage(OnboardingSettings.completedV2Key) private var hasCompletedOnboardingV2 = false
     @AppStorage("enableAnnouncements") private var enableAnnouncements = true
-    @State private var showMenuBarIcon = true
     @State private var didShowLaunchReminders = false
+    @State private var isMenuBarIconVisible = MenuBarIconPreference.isVisible
 
     // Audio cleanup manager for automatic deletion of old audio files
     private let audioCleanupManager = AudioCleanupManager.shared
@@ -379,6 +379,9 @@ struct VoiceInkApp: App {
                 }
             }
             .confettiCelebrationPresenter()
+            .environment(\.menuBarIconVisibility, $isMenuBarIconVisible)
+            // The menu bar icon normally hosts this; with the icon hidden the window does.
+            .background(MainWindowRequestBridge(menuBarManager: menuBarManager, onlyWhenMenuBarIconHidden: true))
             .onReceive(
                 LifecycleObserver.shared.publisher(
                     for: [.applicationDidBecomeActive, .systemDidWake]
@@ -398,7 +401,7 @@ struct VoiceInkApp: App {
             }
         }
 
-        MenuBarExtra(isInserted: $showMenuBarIcon) {
+        MenuBarExtra(isInserted: $isMenuBarIconVisible) {
             MenuBarView()
                 .environmentObject(engine)
                 .environmentObject(whisperModelManager)
@@ -411,6 +414,7 @@ struct VoiceInkApp: App {
                 .environmentObject(updaterViewModel)
                 .environmentObject(aiService)
                 .environmentObject(enhancementService)
+                .environment(\.menuBarIconVisibility, $isMenuBarIconVisible)
         } label: {
             let image: NSImage = {
                 let ratio = $0.size.height / $0.size.width
@@ -423,6 +427,9 @@ struct VoiceInkApp: App {
                 .background(MainWindowRequestBridge(menuBarManager: menuBarManager))
         }
         .menuBarExtraStyle(.menu)
+        .onChange(of: isMenuBarIconVisible) { _, isVisible in
+            MenuBarIconPreference.isVisible = isVisible
+        }
 
         #if DEBUG
             WindowGroup("Debug") {
@@ -443,7 +450,7 @@ struct VoiceInkApp: App {
                 title: String(localized: "Accessibility permission is not provided"),
                 type: .warning,
                 duration: 7.0,
-                actionButton: (String(localized: "Open Settings"), Self.openAccessibilitySettings)
+                actionButton: (String(localized: "Open Settings"), "gearshape", Self.openAccessibilitySettings)
             )
             return
         }
@@ -453,7 +460,7 @@ struct VoiceInkApp: App {
                 title: String(localized: "No mode configured"),
                 type: .warning,
                 duration: 7.0,
-                actionButton: (String(localized: "Manage Modes"), ModeSetupNavigator.openModesSettings)
+                actionButton: (String(localized: "Manage Modes"), "gearshape", ModeSetupNavigator.openModesSettings)
             )
         }
     }
@@ -468,11 +475,14 @@ struct VoiceInkApp: App {
 private struct MainWindowRequestBridge: View {
     @Environment(\.openWindow) private var openWindow
     let menuBarManager: MenuBarManager
+    var onlyWhenMenuBarIconHidden = false
 
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .onReceive(NotificationCenter.default.publisher(for: .showMainWindowRequested)) { _ in
+                // One bridge answers each request: the menu bar icon's while it is shown.
+                guard !onlyWhenMenuBarIconHidden || !MenuBarIconPreference.isVisible else { return }
                 let existingWindow = WindowManager.shared.currentMainWindow()
 
                 if existingWindow == nil {

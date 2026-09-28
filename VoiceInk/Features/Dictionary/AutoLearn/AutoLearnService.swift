@@ -749,6 +749,7 @@ actor AutoLearnService {
                     duration: Self.learnedNotificationDuration,
                     actionButton: (
                         label: String(localized: "Undo"),
+                        systemImage: "arrow.uturn.backward",
                         action: {
                             Task {
                                 await AutoLearnService.shared.undo(correction)
