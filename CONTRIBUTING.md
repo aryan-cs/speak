@@ -4,7 +4,7 @@ First off, thank you for considering contributing to VoiceInk! It's people like 
 
 ## ⚠️ Pull Requests Not Accepted
 
-**As of now, this project is not accepting pull requests.** While VoiceInk is open source and you're welcome to fork and modify it for your own use.
+**As of now, this project is not accepting pull requests.** VoiceInk is open source, and you're welcome to fork and modify it for your own use.
 
 **You can still contribute by:**
 - 🐛 **Reporting bugs** - Open an issue with detailed information
@@ -37,7 +37,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 ### Development Process
 
 1. Ensure you have all the requirements installed:
-   - macOS 14.4 or later
+   - macOS 15.0 or later
    - Latest version of Xcode
    - Latest version of Swift
    - whisper.cpp properly set up

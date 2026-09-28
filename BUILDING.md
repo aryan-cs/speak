@@ -6,7 +6,7 @@ working Developer ID signed and notarized `.dmg`.
 
 ## Requirements
 
-- macOS 14.4 or later
+- macOS 15.0 or later
 - Xcode with the macOS SDK installed
 - Xcode Command Line Tools selected with `xcode-select`
 - Git
@@ -34,9 +34,11 @@ open ~/Downloads/Speak.app
 
 `make local` does the following:
 
-- builds the shared `VoiceInk` Xcode scheme in Debug
+- builds the shared `VoiceInk` Xcode scheme in Release
 - uses `LocalBuild.xcconfig`
-- uses ad-hoc signing, so no Apple Developer account is required
+- signs with your Apple Development certificate when exactly one is installed,
+  and falls back to ad-hoc signing otherwise, so no Apple Developer account is
+  required
 - uses `VoiceInk/VoiceInk.local.entitlements`
 - defines the `LOCAL_BUILD` Swift compilation flag
 - copies the result to `~/Downloads/Speak.app`
@@ -67,13 +69,14 @@ open ~/Downloads/Speak.app
 
 macOS ties Accessibility and Screen Recording grants to the app's code
 signature. Ad-hoc builds get a new signature every time, so System Settings
-keeps showing Speak as enabled while the rebuilt app is denied. If you have an
-Apple Development certificate (any free Apple ID signed into Xcode provides
-one), sign local builds with it instead:
+keeps showing Speak as enabled while the rebuilt app is denied. `make local`
+avoids this by signing with your Apple Development certificate (any free Apple
+ID signed into Xcode provides one) and its team ID. If you have more than one,
+pick it explicitly:
 
 ```sh
-security find-identity -v -p codesigning   # find your identity; the team ID is its OU
-make local LOCAL_SIGN_IDENTITY="Apple Development: you@example.com (XXXXXXXXXX)" LOCAL_DEVELOPMENT_TEAM=TEAMID1234
+security find-identity -v -p codesigning
+make local LOCAL_CODESIGN_IDENTITY=<SHA-1 of the identity>
 ```
 
 After switching signing identities, remove Speak from Accessibility and Screen

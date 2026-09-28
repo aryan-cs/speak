@@ -1,6 +1,6 @@
 // LocalBuild.xcconfig
-// Build configuration for local/unsigned builds (no Apple Developer certificate required).
-// Used by `make local` — does NOT affect Debug or Release configurations.
+// Build configuration for local builds (ad-hoc unless make local finds an Apple Development identity).
+// Applied only by `make local` on top of Release; normal Xcode configurations are unchanged.
 
 // CODE_SIGN_IDENTITY and DEVELOPMENT_TEAM come from the Makefile (ad-hoc by default).
 // They must not be set here: -xcconfig values override command-line settings.

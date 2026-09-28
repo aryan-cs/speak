@@ -3,12 +3,8 @@ DEPS_DIR := $(HOME)/VoiceInk-Dependencies
 WHISPER_CPP_DIR := $(DEPS_DIR)/whisper.cpp
 FRAMEWORK_PATH := $(WHISPER_CPP_DIR)/build-apple/whisper.xcframework
 LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
-
-# Ad-hoc signing ("-") changes the app's signature on every build, so macOS drops
-# Accessibility/Screen Recording grants after each rebuild. Pass a stable identity
-# (e.g. your "Apple Development: ..." certificate and its team ID) to keep them.
-LOCAL_SIGN_IDENTITY ?= -
-LOCAL_DEVELOPMENT_TEAM ?=
+LOCAL_CODESIGN_IDENTITY ?=
+RUN_APP_NAME ?= Speak
 
 .PHONY: all clean whisper setup build local release-macos check healthcheck help dev run
 
@@ -48,24 +44,49 @@ setup: whisper
 	@echo "Please ensure your Xcode project references the framework from this new location."
 
 build: setup
-	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" build
+	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug CODE_SIGN_IDENTITY="" \
+		-skipPackagePluginValidation \
+		-skipMacroValidation \
+		build
 
-# Build for local use without Apple Developer certificate
+# Build locally with stable Apple Development signing when available.
 local: check setup
 	@echo "Building Speak for local use (no Apple Developer certificate required)..."
-	@echo "This is an ad-hoc local build. Do not upload it as a public GitHub release asset."
+	@echo "This is a local build. Do not upload it as a public GitHub release asset."
 	@rm -rf "$(LOCAL_DERIVED_DATA)"
-	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Debug \
+	@SIGNING_IDENTITY="$(LOCAL_CODESIGN_IDENTITY)"; \
+	if [ -z "$$SIGNING_IDENTITY" ]; then \
+		SIGNING_IDENTITIES=$$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $$2 }'); \
+		SIGNING_IDENTITY_COUNT=$$(printf '%s\n' "$$SIGNING_IDENTITIES" | awk 'NF { count++ } END { print count + 0 }'); \
+		if [ "$$SIGNING_IDENTITY_COUNT" -eq 1 ]; then \
+			SIGNING_IDENTITY=$$(printf '%s\n' "$$SIGNING_IDENTITIES" | awk 'NF { print; exit }'); \
+		elif [ "$$SIGNING_IDENTITY_COUNT" -gt 1 ]; then \
+			echo "Multiple Apple Development identities found; set LOCAL_CODESIGN_IDENTITY to choose one; using ad-hoc signing"; \
+		fi; \
+	fi; \
+	if [ -n "$$SIGNING_IDENTITY" ] && [ "$$SIGNING_IDENTITY" != "-" ]; then \
+		SIGNING_REQUIRED=YES; \
+		SIGNING_TEAM=$$(security find-certificate -a -Z -p 2>/dev/null | awk -v id="$$SIGNING_IDENTITY" '/^SHA-1 hash:/ { keep = ($$3 == id) } keep' | openssl x509 -noout -subject 2>/dev/null | sed -n 's/.*OU *= *\([A-Z0-9]*\).*/\1/p'); \
+		echo "Using stable local signing identity: $$SIGNING_IDENTITY"; \
+	else \
+		SIGNING_IDENTITY="-"; \
+		SIGNING_REQUIRED=NO; \
+		SIGNING_TEAM=""; \
+		echo "Using ad-hoc signing (permissions may need approval after rebuilds)"; \
+	fi; \
+	xcodebuild -project VoiceInk.xcodeproj -scheme VoiceInk -configuration Release \
 		-derivedDataPath "$(LOCAL_DERIVED_DATA)" \
 		-xcconfig LocalBuild.xcconfig \
-		CODE_SIGN_IDENTITY="$(LOCAL_SIGN_IDENTITY)" \
-		CODE_SIGNING_REQUIRED=NO \
+		CODE_SIGN_IDENTITY="$$SIGNING_IDENTITY" \
+		CODE_SIGNING_REQUIRED="$$SIGNING_REQUIRED" \
 		CODE_SIGNING_ALLOWED=YES \
-		DEVELOPMENT_TEAM="$(LOCAL_DEVELOPMENT_TEAM)" \
-		CODE_SIGN_ENTITLEMENTS=$(CURDIR)/VoiceInk/VoiceInk.local.entitlements \
+		DEVELOPMENT_TEAM="$$SIGNING_TEAM" \
+		CODE_SIGN_ENTITLEMENTS="$(CURDIR)/VoiceInk/VoiceInk.local.entitlements" \
 		SWIFT_ACTIVE_COMPILATION_CONDITIONS='$$(inherited) LOCAL_BUILD' \
+		-skipPackagePluginValidation \
+		-skipMacroValidation \
 		build
-	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Debug/Speak.app" && \
+	@APP_PATH="$(LOCAL_DERIVED_DATA)/Build/Products/Release/Speak.app" && \
 	if [ -d "$$APP_PATH" ]; then \
 		echo "Copying Speak.app to ~/Downloads..."; \
 		rm -rf "$$HOME/Downloads/Speak.app"; \
@@ -83,26 +104,26 @@ local: check setup
 		exit 1; \
 	fi
 
-# Build signed, notarized macOS release ZIP and DMG artifacts.
-release-macos: check setup
-	./scripts/package_macos_release.sh
-
 # Run application
 run:
-	@if [ -d "$$HOME/Downloads/Speak.app" ]; then \
-		echo "Opening ~/Downloads/Speak.app..."; \
-		open "$$HOME/Downloads/Speak.app"; \
+	@if [ -d "$$HOME/Downloads/$(RUN_APP_NAME).app" ]; then \
+		echo "Opening ~/Downloads/$(RUN_APP_NAME).app..."; \
+		open "$$HOME/Downloads/$(RUN_APP_NAME).app"; \
 	else \
-		echo "Looking for Speak.app in DerivedData..."; \
-		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "Speak.app" -type d | head -1) && \
+		echo "Looking for $(RUN_APP_NAME).app in DerivedData..."; \
+		APP_PATH=$$(find "$$HOME/Library/Developer/Xcode/DerivedData" -name "$(RUN_APP_NAME).app" -type d | head -1) && \
 		if [ -n "$$APP_PATH" ]; then \
 			echo "Found app at: $$APP_PATH"; \
 			open "$$APP_PATH"; \
 		else \
-			echo "Speak.app not found. Please run 'make build' or 'make local' first."; \
+			echo "$(RUN_APP_NAME).app not found. Build it with 'make local' or use 'make dev' for the development app."; \
 			exit 1; \
 		fi; \
 	fi
+
+# Build signed, notarized macOS release ZIP and DMG artifacts.
+release-macos: check setup
+	./scripts/package_macos_release.sh
 
 # Cleanup
 clean:
@@ -117,10 +138,11 @@ help:
 	@echo "  whisper            Clone and build whisper.cpp XCFramework"
 	@echo "  setup              Copy whisper XCFramework to the project"
 	@echo "  build              Build the Speak Xcode project"
-	@echo "  local              Build for local use (no Apple Developer certificate needed)"
-	@echo "  release-macos      Build Developer ID signed and notarized ZIP/DMG artifacts"
+	@echo "  local              Build locally with stable signing when available"
+	@echo "    LOCAL_CODESIGN_IDENTITY=<SHA or name> overrides automatic Apple Development detection"
 	@echo "  run                Launch the built Speak app"
 	@echo "  dev                Build and run the app (for development)"
+	@echo "  release-macos      Build Developer ID signed and notarized ZIP/DMG artifacts"
 	@echo "  all                Run full build process (default)"
 	@echo "  clean              Remove build artifacts"
 	@echo "  help               Show this help message"
