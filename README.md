@@ -10,7 +10,8 @@ This is the setup I use every day, and how to get the same one.
 
 **Transcription: local, no key needed**
 
-- AI Models → Transcription: **Parakeet TDT 0.6B v3**. It runs on your Mac; download it from the Local tab the first time.
+- AI Models → Transcription: **Parakeet Ultra**, a post-trained Parakeet V3. It runs on your Mac; download it from the Local tab the first time.
+- Dictionary → **Boost Vocabulary in Parakeet**: on. A second, small on-device model (98 MB, downloaded on first use) listens for your vocabulary words and fixes how Parakeet spelled them, such as "grok" → "Groq" and "voice sync" → "VoiceInk". It changes a word only when the audio supports your term, and it runs alongside Parakeet, so it adds no noticeable delay.
 - Settings → Shortcuts → Primary Shortcut: **Right ⌘** in Hybrid mode. Tap it to start and stop, or hold it while you talk.
 - Settings → Interface → Recorder Style: **Mini**, a small glass pill with a live waveform. The live transcript text is off.
 
@@ -24,8 +25,8 @@ Enhancement is set per mode on the Modes page:
 
 | Mode | Used | Enhancement |
 | --- | --- | --- |
-| Dictation (default) | everywhere else | off; Parakeet's text is pasted as is |
-| Enhancement | when you pick it | Groq with the Default prompt, using on-screen and selected text as context |
+| Enhancement (default) | everywhere else | Groq with the Default prompt, using on-screen and selected text as context; transcribed by Groq's Whisper Large v3 Turbo |
+| Dictation | when you pick it | off; Parakeet Ultra's text, with vocabulary boosting, is pasted as is |
 | Email | Apple Mail, Gmail, Outlook, iCloud Mail, Proton Mail, Superhuman, Shortwave, HEY, Fastmail, Missive | Groq with the Email prompt, also using the clipboard |
 
 **Auto Learn dictionary: Ollama, local**

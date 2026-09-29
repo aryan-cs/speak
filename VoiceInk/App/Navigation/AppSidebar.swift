@@ -18,8 +18,9 @@ struct AppSidebar: View {
 
     private var sidebarContent: some View {
         VStack(spacing: 0) {
+            // Lines "Speak" up with the item labels (section inset + item inset).
             SidebarAppHeader()
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 22)
                 .padding(.top, 10)
 
             sidebarSection(ViewType.primaryItems)
@@ -66,12 +67,6 @@ private struct SidebarAppHeader: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image("appIconImage")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 28, height: 28)
-                .cornerRadius(8)
-
             Text("Speak")
                 .font(.system(size: 14, weight: .semibold))
 

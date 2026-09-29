@@ -22,6 +22,14 @@ enum CloudTranscriptionSettings {
     }
 }
 
+enum VocabularyBoostingSettings {
+    static let isEnabledKey = "IsParakeetVocabularyBoostingEnabled"
+
+    static var isEnabled: Bool {
+        UserDefaults.standard.bool(forKey: isEnabledKey)
+    }
+}
+
 enum AutoLearnSettings {
     static let isEnabledKey = "IsAutoLearnDictionaryEnabled"
     static let providerKey = "AutoLearnDictionaryProvider"
@@ -155,6 +163,7 @@ enum AppDefaults {
             RecorderDisplaySettingsKeys.showLiveTranscript: true,
             CloudTranscriptionSettings.timeoutKey: CloudTranscriptionSettings.defaultTimeout,
             AutoLearnSettings.isEnabledKey: true,
+            VocabularyBoostingSettings.isEnabledKey: true,
             AutoLearnSettings.reviewScheduleKey: AutoLearnReviewSchedule.immediately.rawValue,
 
             // Cleanup

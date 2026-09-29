@@ -16,7 +16,11 @@ class TranscriptionServiceRegistry {
     )
     private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: modelContext)
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
-    private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService()
+    private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService(
+        vocabularyTerms: { [modelContext] in
+            CustomVocabularyService.shared.vocabularyTerms(from: modelContext)
+        }
+    )
     private var cachedTranscribeCppTranscriptionService: TranscribeCppTranscriptionService?
 
     var transcribeCppTranscriptionService: TranscribeCppTranscriptionService {

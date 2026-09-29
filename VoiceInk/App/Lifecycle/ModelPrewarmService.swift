@@ -41,8 +41,20 @@ final class ModelPrewarmService: ObservableObject {
         logger.notice("App launched, scheduling prewarm")
         Task {
             try? await Task.sleep(for: .seconds(3))
+            warmUpVocabularyBoostingIfUsed()
             await performPrewarm()
         }
+    }
+
+    /// Loads Parakeet's vocabulary booster whenever a mode uses Parakeet, even when the active
+    /// mode is a cloud model, so the first Parakeet dictation is corrected too.
+    private func warmUpVocabularyBoostingIfUsed() {
+        let usesParakeet = ModeManager.shared.configurations.contains { mode in
+            mode.isEnabled
+                && mode.selectedTranscriptionModelName.map(FluidAudioModelManager.isParakeetTdtModel) == true
+        }
+        guard usesParakeet else { return }
+        serviceRegistry.fluidAudioTranscriptionService.warmUpVocabularyBoosting()
     }
 
     /// Trigger on wake from sleep or screen unlock

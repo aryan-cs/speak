@@ -15,6 +15,14 @@ class CustomVocabularyService {
         return "Important Vocabulary: \(wordsText)"
     }
 
+    /// Vocabulary words, trimmed and without case-insensitive duplicates.
+    func vocabularyTerms(from context: ModelContext) -> [String] {
+        var seen = Set<String>()
+        return (getCustomVocabularyWords(from: context) ?? [])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+    }
+
     private func getCustomVocabularyWords(from context: ModelContext) -> [String]? {
         let descriptor = FetchDescriptor<VocabularyWord>(sortBy: [SortDescriptor(\VocabularyWord.word)])
 

@@ -187,6 +187,23 @@ struct VoiceInkTests {
         )
     }
 
+    @Test func vocabularyBoostingNeverPadsTheCtcWindowWithSilence() {
+        // Silence padding left the CTC model with no output for clips under ~5 s and for the
+        // last window of longer audio, so every window must hold real audio.
+        let window = ParakeetVocabularyBooster.modelWindowSamples
+        let short = (0..<48_000).map { Float($0 % 7) }
+        let filled = ParakeetVocabularyBooster.filledForModelWindow(short)
+        #expect(filled.count == window)
+        #expect(Array(filled.prefix(short.count)) == short)
+        #expect(Array(filled[short.count..<(short.count * 2)]) == short)
+
+        let long = [Float](repeating: 0.5, count: window + 16_000)
+        let extended = ParakeetVocabularyBooster.filledForModelWindow(long)
+        #expect(extended.count == long.count + window)
+        #expect(Array(extended.prefix(long.count)) == long)
+        #expect(ParakeetVocabularyBooster.filledForModelWindow([]).isEmpty)
+    }
+
     @MainActor
     @Test func autoLearnTellsMisheardNamesFromEverydayWords() {
         // Misheard names seen in real runs; automatic language detection accepted them as words.

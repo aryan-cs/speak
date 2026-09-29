@@ -13,6 +13,12 @@ class FluidAudioTranscriptionService: TranscriptionService {
     private var loadingTask: (version: AsrModelVersion, task: Task<AsrModels, Error>)?
     private let audioConverter = AudioConverter()
     private let logger = Logger(subsystem: AppConstants.logSubsystem, category: "FluidAudioTranscriptionService")
+    /// The dictionary's vocabulary words, for correcting Parakeet transcripts toward them.
+    private let vocabularyTerms: (@MainActor () -> [String])?
+
+    init(vocabularyTerms: (@MainActor () -> [String])? = nil) {
+        self.vocabularyTerms = vocabularyTerms
+    }
 
     private func version(for model: any TranscriptionModel) -> AsrModelVersion {
         FluidAudioModelManager.asrVersion(for: model.name)
@@ -135,6 +141,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
         }
 
         try await ensureModelsLoaded(for: version(for: model))
+        warmUpVocabularyBoosting()
     }
 
     func transcribe(audioURL: URL, model: any TranscriptionModel, context: TranscriptionRequestContext) async throws
@@ -191,24 +198,76 @@ class FluidAudioTranscriptionService: TranscriptionService {
             model: model
         )
         var decoderState = TdtDecoderState.make(decoderLayers: await asrManager.decoderLayerCount)
-        let result: ASRResult
+        let booster = await readyVocabularyBooster()
+        let samples: [Float]?
         if UserDefaults.standard.bool(forKey: "IsVADEnabled") {
-            let speechAudio = try await preparedSpeechAudio(from: audioURL)
-            guard !speechAudio.isEmpty else { return "" }
-            result = try await asrManager.transcribe(
-                speechAudio,
-                decoderState: &decoderState,
-                language: languageHint
-            )
+            samples = try await preparedSpeechAudio(from: audioURL)
         } else {
-            result = try await asrManager.transcribe(
-                audioURL,
-                decoderState: &decoderState,
-                language: languageHint
-            )
+            samples = booster == nil ? nil : try loadAudioSamples(from: audioURL)
+        }
+        if let samples, samples.isEmpty { return "" }
+
+        // The CTC pass needs only the audio, so it runs alongside Parakeet.
+        async let evidence: ParakeetVocabularyBooster.Evidence? = {
+            guard let booster, let samples else { return nil }
+            return try? await booster.evidence(for: samples)
+        }()
+
+        let result: ASRResult
+        if let samples {
+            result = try await asrManager.transcribe(samples, decoderState: &decoderState, language: languageHint)
+        } else {
+            result = try await asrManager.transcribe(audioURL, decoderState: &decoderState, language: languageHint)
         }
 
-        return result.text
+        guard let booster, let evidence = await evidence else { return result.text }
+        let boostStart = Date()
+        let boosted = await booster.apply(
+            evidence,
+            transcript: result.text,
+            tokenTimings: result.tokenTimings ?? [],
+            isEverydayWord: { word in await AutoLearnEverydayWordGuard.isEverydayWord(word) }
+        )
+        logger.notice(
+            "Vocabulary boosting replaced=\(boosted.replacements.count, privacy: .public) wait=\(Int(Date().timeIntervalSince(boostStart) * 1000), privacy: .public)ms"
+        )
+        return boosted.text
+    }
+
+    /// The booster when it is ready for the current vocabulary. Loading the CTC model can take
+    /// seconds, so that happens in the background and this transcription goes unboosted.
+    private func readyVocabularyBooster() async -> ParakeetVocabularyBooster? {
+        guard VocabularyBoostingSettings.isEnabled, let vocabularyTerms else { return nil }
+        let terms = await MainActor.run { vocabularyTerms() }
+        guard !terms.isEmpty else { return nil }
+
+        let booster = ParakeetVocabularyBooster.shared
+        guard await booster.isModelLoaded else {
+            warmUpVocabularyBoosting()
+            return nil
+        }
+        do {
+            try await booster.prepare(terms: terms)
+        } catch {
+            logger.error("Vocabulary boosting unavailable: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        return await booster.isReady ? booster : nil
+    }
+
+    /// Loads the CTC model ahead of the first dictation.
+    func warmUpVocabularyBoosting() {
+        guard VocabularyBoostingSettings.isEnabled, let vocabularyTerms else { return }
+        let logger = logger
+        Task.detached(priority: .utility) {
+            let terms = await MainActor.run { vocabularyTerms() }
+            guard !terms.isEmpty else { return }
+            do {
+                try await ParakeetVocabularyBooster.shared.prepare(terms: terms)
+            } catch {
+                logger.error("Vocabulary boosting model failed to load: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private func loadAudioSamples(from audioURL: URL) throws -> [Float] {

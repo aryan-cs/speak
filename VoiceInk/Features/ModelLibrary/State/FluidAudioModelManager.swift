@@ -45,6 +45,11 @@ class FluidAudioModelManager: ObservableObject {
         modelVersionMap[modelName] ?? .v3
     }
 
+    /// Parakeet models run by FluidAudio's `AsrManager` (v2, v3, Ultra).
+    nonisolated static func isParakeetTdtModel(named modelName: String) -> Bool {
+        modelVersionMap[modelName] != nil
+    }
+
     nonisolated static func isParakeetUnifiedModel(named modelName: String) -> Bool {
         modelName == "parakeet-unified-0.6b"
     }

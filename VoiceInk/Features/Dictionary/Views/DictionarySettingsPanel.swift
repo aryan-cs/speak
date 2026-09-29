@@ -12,6 +12,7 @@ struct DictionarySettingsPanel: View {
     let onDismiss: () -> Void
     let onReviewNow: () -> Void
     @AppStorage(AutoLearnSettings.isEnabledKey) private var isAutoLearnDictionaryEnabled = true
+    @AppStorage(VocabularyBoostingSettings.isEnabledKey) private var isVocabularyBoostingEnabled = true
     @AppStorage(AutoLearnSettings.reviewScheduleKey)
     private var reviewScheduleRawValue = AutoLearnReviewSchedule.immediately.rawValue
     @State private var pendingCorrectionCount = 0
@@ -28,6 +29,17 @@ struct DictionarySettingsPanel: View {
                     }
                 } header: {
                     Text("Shortcut")
+                }
+
+                Section {
+                    Toggle(isOn: $isVocabularyBoostingEnabled) {
+                        HStack(spacing: 4) {
+                            Text("Boost Vocabulary in Parakeet")
+                            InfoTip(
+                                "Listens for your vocabulary words in the audio and corrects how Parakeet spelled them, such as \"grok\" to \"Groq\". Runs on your Mac with a 98 MB helper model."
+                            )
+                        }
+                    }
                 }
 
                 Section {
