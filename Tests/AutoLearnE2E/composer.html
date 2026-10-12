@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Composer Test</title>
+<style>
+  body { font: 15px -apple-system, system-ui, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+  #thread { flex: 1; overflow: auto; padding: 16px 24px; }
+  .msg { margin: 0 0 14px; line-height: 1.5; }
+  #composerWrap { border-top: 1px solid #ddd; padding: 12px 24px 20px; }
+  .ProseMirror { min-height: 60px; max-height: 240px; overflow: auto; outline: none; border: 1px solid #ccc; border-radius: 12px; padding: 10px 14px; font-size: 16px; line-height: 1.5; }
+  .ProseMirror p { margin: 0; }
+</style>
+</head>
+<body>
+<div id="thread"></div>
+<div id="composerWrap"><div id="composer"></div></div>
+<script type="module">
+  // A chat box on the editor stack the Claude app uses (ProseMirror via Tiptap). Return sends
+  // the message and clears the box, like a chat app.
+  import { Editor, Extension } from 'https://esm.sh/@tiptap/core@^2.11.5?target=es2022';
+  import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.11.5?target=es2022';
+  const thread = document.getElementById('thread');
+  const filler = 'The quick brown fox jumps over the lazy dog while the build finishes and the tests run. ';
+  for (let i = 0; i < 250; i++) {
+    const div = document.createElement('div');
+    div.className = 'msg';
+    div.textContent = (i % 2 ? 'Assistant: ' : 'You: ') + filler.repeat(1 + (i % 4));
+    thread.appendChild(div);
+  }
+  window.__sent = [];
+  const SendOnEnter = Extension.create({
+    name: 'sendOnEnter',
+    addKeyboardShortcuts() {
+      return { Enter: ({ editor }) => {
+        const text = editor.getText({ blockSeparator: '\n' });
+        if (!text.trim()) return true;
+        window.__sent.push(text);
+        editor.commands.clearContent(true);
+        return true;
+      } };
+    },
+  });
+  window.__editor = new Editor({ element: document.getElementById('composer'), extensions: [StarterKit, SendOnEnter], autofocus: 'end' });
+  window.__ready = true;
+</script>
+</body>
+</html>

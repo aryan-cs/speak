@@ -95,6 +95,14 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
         ].joined(separator: " ")
     }
 
+    /// Switches on the app's web accessibility ahead of a paste; the capture restores it.
+    func prepareWebAccessibility(processID: pid_t) async {
+        await perform { [self] in
+            guard AXIsProcessTrusted(), processID != ProcessInfo.processInfo.processIdentifier else { return }
+            textReader.prepareWebAccessibility(processID: processID)
+        }
+    }
+
     /// Restores web accessibility after every capture attempt for a paste has failed.
     func abandonCapture(processID: pid_t) async {
         await perform { [self] in
@@ -188,7 +196,12 @@ final class AutoLearnAXRuntime: @unchecked Sendable {
         // A cleared field still matches an empty span between the surrounding text.
         guard !normalizedCurrent.isEmpty else { return .missing }
         let normalizedOriginal = AutoLearnTextNormalizer.accessibilityComparable(active.pastedText)
-        return textIsExactlyEqual(normalizedCurrent, normalizedOriginal) ? .unchanged : .edited
+        if textIsExactlyEqual(normalizedCurrent, normalizedOriginal) { return .unchanged }
+        // Replaced wholesale, as a browser address bar does when Return loads the search.
+        guard AutoLearnTextSimilarity.isCorrection(of: normalizedOriginal, to: normalizedCurrent) else {
+            return .missing
+        }
+        return .edited
     }
 
     func targetIsFocused(token: AutoLearnPasteToken) async -> Bool {

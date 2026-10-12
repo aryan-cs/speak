@@ -187,6 +187,24 @@ struct VoiceInkTests {
         )
     }
 
+    @Test func autoLearnMatchesPastesTheEditorReflowed() {
+        // A real paste: two paragraphs with smart quotes. The Claude app's box read it back with
+        // one newline between paragraphs and Speak could not find its own paste.
+        let pasted = "For example, when I say the word “whisper flow,” it is wrong.\n\nBut when I changed it. "
+        let field = "For example, when I say the word \"whisper flow,\" it is wrong.\nBut when I changed it.\n"
+        #expect(AutoLearnTextNormalizer.accessibilityComparable(pasted) == AutoLearnTextNormalizer.accessibilityComparable(field))
+    }
+
+    @Test func autoLearnIgnoresEditsThatReplaceThePasteWholesale() {
+        // Queued from a browser address bar, which shows the search URL after Return.
+        #expect(!AutoLearnTextSimilarity.isCorrection(of: "Does AirCard work? Are cards still functional", to: "google.com/search"))
+        #expect(!AutoLearnTextSimilarity.isCorrection(of: "Help me plan an intern trip to the Catskill Mountains.", to: "Ask Gemini"))
+        // Real corrections the user made.
+        #expect(AutoLearnTextSimilarity.isCorrection(of: "I'm using Whisperflow and it's just", to: "I'm using WisprFlow and it's just"))
+        #expect(AutoLearnTextSimilarity.isCorrection(of: "Walker Tootie and Humanoid look", to: "Walker2d and Humanoid look"))
+        #expect(AutoLearnTextSimilarity.isCorrection(of: "we're in a C group", to: "we're in a cgroup"))
+    }
+
     @Test func vocabularyBoostingNeverPadsTheCtcWindowWithSilence() {
         // Silence padding left the CTC model with no output for clips under ~5 s and for the
         // last window of longer audio, so every window must hold real audio.

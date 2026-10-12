@@ -280,7 +280,9 @@ class VoiceInkEngine: NSObject, ObservableObject {
                             // has actually started. Preflight/permission failures
                             // must leave it available for Auto Learn capture.
                             if AutoLearnSettings.isEnabled {
-                                await AutoLearnService.shared.recordingDidStart()
+                                await AutoLearnService.shared.recordingDidStart(
+                                    targetProcessID: NSWorkspace.shared.frontmostApplication?.processIdentifier
+                                )
                             }
 
                             await activeModeTask.value

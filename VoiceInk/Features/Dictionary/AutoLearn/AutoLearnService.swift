@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import OSLog
 import SwiftData
@@ -94,6 +95,7 @@ actor AutoLearnService {
     }
 
     private func startPendingReviewForApproval() async {
+        await reviewer?.refreshOllamaIfUnavailable()
         guard await reviewer?.hasAvailableProvider == true else {
             logger.notice("Manual Auto Learn review deferred: no provider available")
             return
@@ -205,13 +207,18 @@ actor AutoLearnService {
         try await pendingQueue.outstandingCount()
     }
 
-    func recordingDidStart() async {
+    func recordingDidStart(targetProcessID: pid_t? = nil) async {
         guard AutoLearnSettings.isEnabled else { return }
         if let token = activeToken {
             await completeSession(token: token, persist: true, reason: "recording-started")
         }
         lifecycleGeneration &+= 1
         await discardActiveSession()
+        // A browser builds its accessibility tree seconds after it is switched on, so switch it
+        // on while the user is still speaking rather than at paste time.
+        if let targetProcessID {
+            await accessibilityRuntime.prepareWebAccessibility(processID: targetProcessID)
+        }
     }
 
     func pasteDidFinish(text: String, processID: pid_t?, commandPosted: Bool) async -> UInt64? {
@@ -306,14 +313,14 @@ actor AutoLearnService {
             case .captured(let token):
                 capturedToken = token
                 logger.notice(
-                    "Auto Learn watching pasted text characters=\(text.count, privacy: .public) attempt=\(attempt + 1, privacy: .public)"
+                    "Auto Learn watching pasted text characters=\(text.count, privacy: .public) attempt=\(attempt + 1, privacy: .public) app=\(Self.appName(processID), privacy: .public)"
                 )
             case .retryable(let reason, let detail):
                 lastRetryReason = reason
                 lastRetryDetail = detail
                 continue
             case .rejected(let reason):
-                logger.notice("Auto Learn capture rejected reason=\(reason, privacy: .public)")
+                logger.notice("Auto Learn capture rejected reason=\(reason, privacy: .public) app=\(Self.appName(processID), privacy: .public)")
                 return
             }
             break
@@ -322,7 +329,7 @@ actor AutoLearnService {
         guard let token = capturedToken else {
             await accessibilityRuntime.abandonCapture(processID: processID)
             logger.notice(
-                "Auto Learn capture rejected reason=\(lastRetryReason, privacy: .public) attempts=\(delays.count, privacy: .public) \(lastRetryDetail, privacy: .public)"
+                "Auto Learn capture rejected reason=\(lastRetryReason, privacy: .public) attempts=\(delays.count, privacy: .public) app=\(Self.appName(processID), privacy: .public) \(lastRetryDetail, privacy: .public)"
             )
             return
         }
@@ -367,6 +374,10 @@ actor AutoLearnService {
             await completeSession(token: token, persist: true, reason: "pasted-text-left-field")
             return
         }
+    }
+
+    private static func appName(_ processID: pid_t) -> String {
+        NSRunningApplication(processIdentifier: processID)?.bundleIdentifier ?? "pid-\(processID)"
     }
 
     private func discardActiveSession() async {
@@ -461,7 +472,9 @@ actor AutoLearnService {
         else { return }
 
         guard let revision = FinalSnapshotDiffEngine.revision(from: snapshot) else { return }
-        let candidates = CorrectionDiffEngine.candidates(from: revision)
+        let candidates = CorrectionDiffEngine.candidates(from: revision).filter {
+            AutoLearnTextSimilarity.isCorrection(of: $0.originalText, to: $0.correctedText)
+        }
         guard !candidates.isEmpty else { return }
 
         do {
@@ -489,6 +502,7 @@ actor AutoLearnService {
 
         // A provider that is still starting up is not a failure. Leave the
         // candidates queued; the next paste, setting change, or retry arms it.
+        await reviewer?.refreshOllamaIfUnavailable()
         guard await reviewer?.hasAvailableProvider == true else {
             logger.notice("Auto Learn review deferred: no provider available")
             return
@@ -536,16 +550,32 @@ actor AutoLearnService {
             return
         }
 
-        let candidates: [AutoLearnReviewCandidate]
+        var candidates: [AutoLearnReviewCandidate]
         do {
             candidates = try await pendingQueue.claimPending(
-                limit: AutoLearnLimits.maximumReviewBatchCandidates
+                limit: AutoLearnLimits.reviewBatchCandidates
             )
         } catch {
             try? await releaseAllClaimsToQueue()
             await finishReviewTask(generation: generation)
             log(error, message: "Failed to load queued Auto Learn candidates")
             return
+        }
+
+        // Drop edits that replaced the paste wholesale (queued before that was filtered at
+        // capture), so they are neither reviewed nor kept.
+        let implausibleIDs = Set(candidates.filter {
+            !AutoLearnTextSimilarity.isCorrection(of: $0.originalText, to: $0.correctedText)
+        }.map(\.candidateID))
+        if !implausibleIDs.isEmpty {
+            try? await pendingQueue.remove(implausibleIDs)
+            logger.notice("Auto Learn dropped \(implausibleIDs.count, privacy: .public) queued edit(s) that replaced the paste wholesale")
+            if implausibleIDs.count == candidates.count {
+                await notifyQueueChanged()
+                await processPendingReviewBatch(generation: generation, stagesForApproval: stagesForApproval)
+                return
+            }
+            candidates = candidates.filter { !implausibleIDs.contains($0.candidateID) }
         }
 
         guard !candidates.isEmpty else {

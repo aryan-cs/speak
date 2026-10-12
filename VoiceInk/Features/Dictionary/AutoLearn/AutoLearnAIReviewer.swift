@@ -79,6 +79,16 @@ final class AutoLearnAIReviewer: @unchecked Sendable {
         self.enhancementService = enhancementService
     }
 
+    /// Ollama's model list is fetched once, so a server started after Speak looks unavailable
+    /// until it is fetched again. Refreshes it when Ollama is the provider Auto Learn would use.
+    func refreshOllamaIfUnavailable() async {
+        guard !hasAvailableProvider,
+            AutoLearnSettings.selectedProvider == nil || AutoLearnSettings.selectedProvider == .ollama,
+            let aiService = enhancementService.getAIService()
+        else { return }
+        _ = await aiService.refreshOllamaAvailability()
+    }
+
     /// True when a review could run right now. Used to defer queued reviews
     /// while providers are still starting up instead of recording a failure.
     var hasAvailableProvider: Bool {

@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Foundation
 
@@ -23,7 +24,10 @@ final class AutoLearnAXTextReader {
         let selection: NSRange
     }
 
+    /// Electron's switch for building its web accessibility tree.
     private static let manualAccessibilityAttribute = "AXManualAccessibility" as CFString
+    /// Chrome's equivalent; Chrome rejects `AXManualAccessibility`.
+    private static let enhancedUserInterfaceAttribute = "AXEnhancedUserInterface" as CFString
     private static let selectedMarkerRangeAttribute = "AXSelectedTextMarkerRange" as CFString
     private static let documentStartMarkerAttribute = "AXStartTextMarker" as CFString
     private static let documentEndMarkerAttribute = "AXEndTextMarker" as CFString
@@ -34,7 +38,8 @@ final class AutoLearnAXTextReader {
 
     private var manualAccessibilityLastEnabledAt: [pid_t: UInt64] = [:]
     private var manualAccessibilityUnsupportedUntil: [pid_t: UInt64] = [:]
-    private var manualAccessibilityPreviousValue: [pid_t: Bool] = [:]
+    /// The switch that was turned on for each app and its value beforehand, for restoring.
+    private var manualAccessibilityPreviousValue: [pid_t: (attribute: CFString, value: Bool)] = [:]
 
     func focusedReadings(processID: pid_t) -> [AutoLearnAXTextReading] {
         let appElement = AXUIElementCreateApplication(processID)
@@ -73,7 +78,7 @@ final class AutoLearnAXTextReader {
 
     func restoreWebAccessibility(processID: pid_t, appElement: AXUIElement) {
         guard let previous = manualAccessibilityPreviousValue.removeValue(forKey: processID) else { return }
-        _ = AXUIElementSetAttributeValue(appElement, Self.manualAccessibilityAttribute, previous ? kCFBooleanTrue : kCFBooleanFalse)
+        _ = AXUIElementSetAttributeValue(appElement, previous.attribute, previous.value ? kCFBooleanTrue : kCFBooleanFalse)
         manualAccessibilityLastEnabledAt.removeValue(forKey: processID)
     }
 
@@ -217,6 +222,12 @@ final class AutoLearnAXTextReader {
         )
     }
 
+    func prepareWebAccessibility(processID: pid_t) {
+        let appElement = AXUIElementCreateApplication(processID)
+        AXUIElementSetMessagingTimeout(appElement, AutoLearnLimits.captureAccessibilityTimeoutSeconds)
+        enableWebAccessibilityIfNeeded(processID: processID, appElement: appElement)
+    }
+
     private func enableWebAccessibilityIfNeeded(
         processID: pid_t,
         appElement: AXUIElement
@@ -229,26 +240,34 @@ final class AutoLearnAXTextReader {
             return
         }
 
-        guard let previousValue = copyBool(Self.manualAccessibilityAttribute, from: appElement) else {
+        // The Chrome switch also slows window animations in ordinary apps, so it is only
+        // tried in Chromium browsers.
+        let attributes = [Self.manualAccessibilityAttribute]
+            + (Self.isChromiumBrowser(processID) ? [Self.enhancedUserInterfaceAttribute] : [])
+        for attribute in attributes {
+            // An app that never answered for this switch keeps its saved value from before.
+            let previousValue = copyBool(attribute, from: appElement) ?? false
+            let result = AXUIElementSetAttributeValue(appElement, attribute, kCFBooleanTrue)
+            guard result == .success else { continue }
+            // Keep the value from before the first enable, so a retry does not record our own `true`.
+            if manualAccessibilityPreviousValue[processID] == nil {
+                manualAccessibilityPreviousValue[processID] = (attribute, previousValue)
+            }
+            manualAccessibilityLastEnabledAt[processID] = now
             return
         }
-        // Keep the value from before the first enable, so a retry does not record our own `true`.
-        if manualAccessibilityPreviousValue[processID] == nil {
-            manualAccessibilityPreviousValue[processID] = previousValue
-        }
-        let result = AXUIElementSetAttributeValue(
-            appElement,
-            Self.manualAccessibilityAttribute,
-            kCFBooleanTrue
-        )
-        switch result {
-        case .success:
-            manualAccessibilityLastEnabledAt[processID] = now
-        case .attributeUnsupported, .notImplemented:
-            manualAccessibilityUnsupportedUntil[processID] = now + 60_000_000_000
-        default:
-            break
-        }
+        manualAccessibilityUnsupportedUntil[processID] = now + 60_000_000_000
+    }
+
+    private static let chromiumBrowserBundleIDs: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+        "org.chromium.Chromium", "com.brave.Browser", "com.microsoft.edgemac", "company.thebrowser.Browser",
+        "company.thebrowser.dia", "ai.perplexity.comet", "com.vivaldi.Vivaldi", "com.operasoftware.Opera",
+    ]
+
+    private static func isChromiumBrowser(_ processID: pid_t) -> Bool {
+        guard let bundleID = NSRunningApplication(processIdentifier: processID)?.bundleIdentifier else { return false }
+        return chromiumBrowserBundleIDs.contains(bundleID)
     }
 
     private func appendUnique(

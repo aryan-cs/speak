@@ -4,26 +4,56 @@ enum AutoLearnTextNormalizer {
     /// Produces a comparison-only representation of text exposed by editable
     /// web controls. The original field value remains untouched for anchoring.
     static func accessibilityComparable(_ text: String) -> String {
-        let normalizedLineEndings = text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-            .replacingOccurrences(of: "\u{2028}", with: "\n")
-            .replacingOccurrences(of: "\u{2029}", with: "\n")
-            .replacingOccurrences(of: "\u{00A0}", with: " ")
+        // Editors restyle pasted text: a blank line between paragraphs reads back as one
+        // newline, spaces become non-breaking, and quotes turn smart or straight. Comparison
+        // ignores all of that, so whitespace runs become one space and quotes are folded.
+        let folded = text
             .replacingOccurrences(of: "\u{FEFF}", with: "")
             .replacingOccurrences(of: "\u{200B}", with: "")
-
-        let normalizedBlankLines = normalizedLineEndings
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { line -> String in
-                let value = String(line)
-                return value.trimmingCharacters(in: .whitespaces).isEmpty ? "" : value
-            }
-            .joined(separator: "\n")
-
-        return normalizedBlankLines
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .map { quoteFolding[$0] ?? $0 }
+        return String(folded)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
             .precomposedStringWithCanonicalMapping
+    }
+
+    private static let quoteFolding: [Character: Character] = [
+        "\u{2018}": "'", "\u{2019}": "'", "\u{201A}": "'", "\u{201B}": "'",
+        "\u{201C}": "\"", "\u{201D}": "\"", "\u{201E}": "\"", "\u{201F}": "\"",
+    ]
+}
+
+enum AutoLearnTextSimilarity {
+    /// How much of `original` survives in `edited`, from 0 to 1. Short texts use edit distance;
+    /// long ones the share of words kept, which stays cheap enough to check on every poll.
+    static func ratio(_ original: String, _ edited: String) -> Double {
+        let a = Array(original.lowercased()), b = Array(edited.lowercased())
+        guard !a.isEmpty || !b.isEmpty else { return 1 }
+        guard a.count + b.count <= 400 else {
+            let originalWords = original.lowercased().split(whereSeparator: \.isWhitespace)
+            let editedWords = Set(edited.lowercased().split(whereSeparator: \.isWhitespace))
+            guard !originalWords.isEmpty else { return 0 }
+            return Double(originalWords.filter(editedWords.contains).count) / Double(originalWords.count)
+        }
+        guard !a.isEmpty, !b.isEmpty else { return 0 }
+        var previous = Array(0...b.count)
+        for i in 1...a.count {
+            var current = [i] + [Int](repeating: 0, count: b.count)
+            for j in 1...b.count {
+                let substitution = previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1)
+                current[j] = min(previous[j] + 1, current[j - 1] + 1, substitution)
+            }
+            previous = current
+        }
+        return 1 - Double(previous[b.count]) / Double(max(a.count, b.count))
+    }
+
+    /// A correction keeps most of what was pasted. Below this, the text was replaced wholesale,
+    /// such as a browser address bar showing its search URL after Return.
+    static let minimumCorrectionRatio = 0.3
+
+    static func isCorrection(of original: String, to edited: String) -> Bool {
+        ratio(original, edited) >= minimumCorrectionRatio
     }
 }
 
@@ -205,6 +235,12 @@ enum AutoLearnLimits {
     static let reviewContextSegmentsPerSide = 3
     static let maximumUnspacedCandidateCharacters = 32
     static let maximumReviewBatchCandidates = 100
+    /// A small local model takes about a minute for 20 candidates, past the review timeout.
+    static let localReviewBatchCandidates = 6
+
+    static var reviewBatchCandidates: Int {
+        AutoLearnSettings.selectedProvider == .ollama ? localReviewBatchCandidates : maximumReviewBatchCandidates
+    }
 }
 
 enum AutoLearnProviderPolicy {
