@@ -72,6 +72,7 @@ class AudioTranscriptionService: ObservableObject {
             var text = try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext)
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
             text = TranscriptionOutputFilter.filter(text)
+            text = await SilenceHallucinationGuard.filter(text, audioURL: url)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let formattingConfiguration = ModeRuntimeResolver.transcriptionFormattingConfiguration(mode: mode)
 
@@ -116,7 +117,8 @@ class AudioTranscriptionService: ObservableObject {
             if let enhancementService = enhancementService,
                 let enhancementConfiguration,
                 enhancementConfiguration.isEnabled,
-                enhancementService.isConfigured(for: enhancementConfiguration)
+                enhancementService.isConfigured(for: enhancementConfiguration),
+                !text.isEmpty
             {
                 do {
                     let enhancementResult = try await enhancementService.enhance(

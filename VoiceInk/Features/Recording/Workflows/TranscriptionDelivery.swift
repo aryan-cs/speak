@@ -90,6 +90,12 @@ final class TranscriptionDelivery {
             return
         }
 
+        guard TranscriptionPastePolicy.shouldPaste(text) else {
+            SoundManager.shared.playStopSound()
+            await actions.dismiss()
+            return
+        }
+
         guard let customCommand = item.output.customCommand,
             let command = customCommand.trimmedCommand
         else {

@@ -68,6 +68,17 @@ class CloudTranscriptionService: TranscriptionService {
                 throw CloudTranscriptionError.unsupportedProvider
             }
             let apiKey = try requireAPIKey(forProvider: cloudProvider.providerKey)
+            if let segmentedProvider = cloudProvider as? any SegmentedCloudProvider {
+                let transcript = try await segmentedProvider.transcribeSegments(
+                    audioData: audioData,
+                    fileName: fileName,
+                    apiKey: apiKey,
+                    model: model.name,
+                    language: language,
+                    timeout: timeout
+                )
+                return await SilenceHallucinationGuard.removingSilenceLines(from: transcript, audioURL: audioURL)
+            }
             return try await cloudProvider.transcribe(
                 audioData: audioData,
                 fileName: fileName,

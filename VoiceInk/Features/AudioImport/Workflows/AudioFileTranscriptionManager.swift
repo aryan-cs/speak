@@ -174,6 +174,7 @@ class AudioTranscriptionManager: ObservableObject {
             )
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
             text = TranscriptionOutputFilter.filter(text)
+            text = await SilenceHallucinationGuard.filter(text, audioURL: permanentURL)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
             let modeMetadata = transcriptionConfiguration.metadata
@@ -204,7 +205,8 @@ class AudioTranscriptionManager: ObservableObject {
             if let enhancementService = engine.enhancementService,
                 let enhancementConfiguration,
                 enhancementConfiguration.isEnabled,
-                enhancementService.isConfigured(for: enhancementConfiguration)
+                enhancementService.isConfigured(for: enhancementConfiguration),
+                !text.isEmpty
             {
                 item.status = .processing(phase: .enhancing)
                 do {

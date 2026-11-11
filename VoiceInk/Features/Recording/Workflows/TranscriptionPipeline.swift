@@ -112,6 +112,7 @@ class TranscriptionPipeline {
                 )
             }
             text = TranscriptionOutputFilter.filter(text)
+            text = await SilenceHallucinationGuard.filter(text, audioURL: audioURL)
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
 
             if shouldCancel() {
@@ -153,8 +154,10 @@ class TranscriptionPipeline {
             finalText = cleanedText
 
             if !assistant.isFollowUp {
+                // A recording with no speech has nothing to enhance or answer.
                 let shouldRespondInRecorder =
-                    resolvedOutputConfiguration.outputMode == .respond
+                    !text.isEmpty
+                    && resolvedOutputConfiguration.outputMode == .respond
                     && resolvedEnhancementConfiguration?.isEnabled == true
                     && resolvedEnhancementConfiguration.map { configuration in
                         enhancementService?.isConfigured(for: configuration) == true
@@ -166,8 +169,9 @@ class TranscriptionPipeline {
                 let savedThreshold = UserDefaults.standard.integer(forKey: "ShortEnhancementWordThreshold")
                 let shortEnhancementWordThreshold = savedThreshold > 0 ? savedThreshold : 3
                 let shouldSkipEnhancement =
-                    !shouldRespondInRecorder && isSkipShortEnhancementEnabled
-                    && WordCounter.count(in: text) <= shortEnhancementWordThreshold
+                    text.isEmpty
+                    || (!shouldRespondInRecorder && isSkipShortEnhancementEnabled
+                        && WordCounter.count(in: text) <= shortEnhancementWordThreshold)
 
                 if let enhancementService,
                     let resolvedEnhancementConfiguration,

@@ -205,6 +205,49 @@ struct VoiceInkTests {
         #expect(AutoLearnTextSimilarity.isCorrection(of: "we're in a C group", to: "we're in a cgroup"))
     }
 
+    @Test func silenceGuardDropsStockLinesOnlyWhenNoOneSpoke() {
+        // Peak speech probabilities measured on real recordings Whisper transcribed.
+        #expect(SilenceHallucinationGuard.filter("Thank you.", peakSpeechProbability: 0.596) == "")
+        #expect(SilenceHallucinationGuard.filter("you", peakSpeechProbability: 0.653) == "")
+        #expect(SilenceHallucinationGuard.filter(".", peakSpeechProbability: 0.616) == "")
+        #expect(SilenceHallucinationGuard.filter("Thank you. Thank you.", peakSpeechProbability: 0.5) == "")
+        // Real thanks, spoken clearly.
+        #expect(SilenceHallucinationGuard.filter("Thank you.", peakSpeechProbability: 1.0) == "Thank you.")
+        // Quiet real speech the detector scored low; Parakeet heard the same words.
+        #expect(SilenceHallucinationGuard.filter("Try now.", peakSpeechProbability: 0.393) == "Try now.")
+        #expect(SilenceHallucinationGuard.filter("Or not?", peakSpeechProbability: 0.795) == "Or not?")
+        #expect(SilenceHallucinationGuard.filter("Thank you for the help.", peakSpeechProbability: 0.5) == "Thank you for the help.")
+        #expect(SilenceHallucinationGuard.filter("...", peakSpeechProbability: 1.0) == "")
+        #expect(SilenceHallucinationGuard.filter("2", peakSpeechProbability: 1.0) == "2")
+    }
+
+    @Test func silenceGuardRecognizesStockLinesInOtherLanguages() {
+        #expect(SilenceHallucinationGuard.isSilencePhrase("Sous-titres réalisés par la communauté d'Amara.org"))
+        #expect(SilenceHallucinationGuard.isSilencePhrase("ご視聴ありがとうございました"))
+        #expect(SilenceHallucinationGuard.isSilencePhrase("Thanks for watching! Bye."))
+        #expect(!SilenceHallucinationGuard.isSilencePhrase("Thanks for watching the build, then deploy it."))
+        #expect(!SilenceHallucinationGuard.isSilencePhrase("Visit amara.org"))
+    }
+
+    @Test func silenceGuardDropsOnlyStockLinesSaidOverSilence() {
+        // 30.3 s recording, speech until 27.75 s (as in a real one), then room tone.
+        let frame = 4096.0 / 16_000
+        let probabilities = (0..<119).map { Double($0) * frame < 27.75 ? Float(1.0) : Float(0.3) }
+        let transcript = SegmentedTranscript(
+            text: " Keep the lighter fill. Thank you. Things aren't aligned. Thank you.",
+            segments: [
+                .init(start: 0, end: 12.0, text: " Keep the lighter fill."),
+                .init(start: 12.0, end: 12.8, text: " Thank you."),
+                .init(start: 12.8, end: 27.76, text: " Things aren't aligned."),
+                .init(start: 27.76, end: 30.29, text: " Thank you."),
+            ])
+        let dropped = SilenceHallucinationGuard.droppedSegments(transcript.segments!, frameProbabilities: probabilities)
+        #expect(dropped == IndexSet([3]))
+        #expect(
+            SilenceHallucinationGuard.text(of: transcript, dropping: dropped)
+                == "Keep the lighter fill. Thank you. Things aren't aligned.")
+    }
+
     @Test func vocabularyBoostingNeverPadsTheCtcWindowWithSilence() {
         // Silence padding left the CTC model with no output for clips under ~5 s and for the
         // last window of longer audio, so every window must hold real audio.

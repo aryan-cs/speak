@@ -31,6 +31,27 @@ extension CloudProvider {
     }
 }
 
+/// A transcript with the time span of each line, as Whisper's `verbose_json` returns it.
+struct SegmentedTranscript: Decodable, Sendable {
+    struct Segment: Decodable, Sendable {
+        let start: TimeInterval
+        let end: TimeInterval
+        let text: String
+    }
+
+    let text: String
+    let segments: [Segment]?
+}
+
+/// A provider whose transcripts carry segment timings, so Speak can tell which lines Whisper
+/// wrote over silence.
+protocol SegmentedCloudProvider: CloudProvider {
+    func transcribeSegments(
+        audioData: Data, fileName: String, apiKey: String, model: String, language: String?,
+        timeout: TimeInterval
+    ) async throws -> SegmentedTranscript
+}
+
 enum CloudProviderRegistry {
     static let allProviders: [any CloudProvider] = [
         GroqProvider(),
