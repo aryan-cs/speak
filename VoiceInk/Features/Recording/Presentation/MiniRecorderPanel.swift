@@ -19,6 +19,8 @@ class MiniRecorderPanel: ActiveGlassPanel {
     private var revealedDockHeight: CGFloat = 84
     /// Whether the Dock is oriented at the bottom (vs. left/right). Side docks never push the pill up.
     private var dockOrientationIsBottom = true
+    /// When the cursor reached the Dock's reveal edge; the pill follows once the Dock starts sliding.
+    private var revealPendingSince: Date?
 
     init(contentRect: NSRect) {
         super.init(
@@ -223,10 +225,17 @@ class MiniRecorderPanel: ActiveGlassPanel {
 
     // MARK: - Dock tracking
 
+    /// How long the Dock waits before sliding in: its `autohide-delay` setting, or the default, which
+    /// measured 0.2 s from the cursor reaching the bottom edge to the Dock appearing.
+    private var dockRevealDelay: TimeInterval {
+        UserDefaults(suiteName: "com.apple.dock")?.object(forKey: "autohide-delay") as? Double ?? 0.2
+    }
+
     private func startDockTracking() {
         stopDockTracking()
         lastAppliedRevealed = nil  // force the first tick to evaluate
-        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Fast enough that the pill starts moving within a frame or two of the Dock.
+        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             self?.repositionForCurrentDockState()
         }
         // .common mode keeps the timer firing during menu/tracking runloop modes.
@@ -243,6 +252,16 @@ class MiniRecorderPanel: ActiveGlassPanel {
         guard isVisible, let screen = MiniRecorderPanel.targetScreen else { return }
 
         let revealed = updateDockRevealed(on: screen)
+
+        // The Dock waits before sliding in (its autohide delay) but hides at once. Moving up as soon
+        // as the cursor reached the edge made the pill lead the Dock, so a reveal waits for the Dock.
+        if revealed, lastAppliedRevealed != true {
+            let pendingSince = revealPendingSince ?? Date()
+            revealPendingSince = pendingSince
+            guard Date().timeIntervalSince(pendingSince) >= dockRevealDelay else { return }
+        } else {
+            revealPendingSince = nil
+        }
 
         // Only act on an actual reveal-state transition. We deliberately do NOT compare against the
         // live `frame` here: while an `animator().setFrame` slide is in flight, `frame` can report
