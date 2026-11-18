@@ -508,7 +508,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 221;
+				CURRENT_PROJECT_VERSION = 222;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"VoiceInk/Preview Content\"";
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
@@ -525,7 +525,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.20.1;
+				MARKETING_VERSION = 2.20.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aryancs.Speak;
 				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = Speak;
@@ -545,7 +545,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 221;
+				CURRENT_PROJECT_VERSION = 222;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"VoiceInk/Preview Content\"";
 				DEVELOPMENT_TEAM = V6J6A3VWY2;
@@ -562,7 +562,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 2.20.1;
+				MARKETING_VERSION = 2.20.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aryancs.Speak;
 				PRODUCT_MODULE_NAME = VoiceInk;
 				PRODUCT_NAME = Speak;
