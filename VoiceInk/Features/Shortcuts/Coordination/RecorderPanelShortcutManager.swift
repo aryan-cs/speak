@@ -124,8 +124,21 @@ final class RecorderPanelShortcutManager: ObservableObject {
             }
         }
 
+        // A Right Option tap steps to the next mode. Modifier matching is exact, so it is listened
+        // for alone (recording started with a tap) and with Command held (push-to-talk).
+        if ModeManager.shared.enabledConfigurations.count > 1, !isRightOptionAssigned {
+            shortcuts[.recorderPanelNextMode(withCommand: false)] = .modifierOnly(
+                keyCode: UInt16(kVK_RightOption), modifierFlags: [.option])
+            shortcuts[.recorderPanelNextMode(withCommand: true)] = .modifierOnly(
+                keyCode: UInt16(kVK_RightOption), modifierFlags: [.option, .command])
+        }
+
         visibleRecorderMonitor.start(
             shortcuts: shortcuts,
+            // Only a tap counts, so Right Option held for ⌥1–⌥9 or a typed character does not cycle.
+            standaloneModifierActions: [
+                .recorderPanelNextMode(withCommand: false), .recorderPanelNextMode(withCommand: true),
+            ],
             onShortcutDown: { [weak self] action, _ in
                 Task { @MainActor in
                     await self?.handleRecorderPanelShortcut(action)
@@ -150,6 +163,8 @@ final class RecorderPanelShortcutManager: ObservableObject {
             }
         case .recorderPanelMode(let index):
             handleModeSelectionShortcut(index: index)
+        case .recorderPanelNextMode:
+            selectNextMode()
         default:
             break
         }
@@ -203,6 +218,27 @@ final class RecorderPanelShortcutManager: ObservableObject {
         )
     }
 
+    /// Right Option stays free for this when the user has not given it to another shortcut.
+    private var isRightOptionAssigned: Bool {
+        let actions = ShortcutAction.legacyKeyboardShortcutActions
+            + ModeManager.shared.configurations.map { ShortcutAction.mode($0.id) }
+        return actions.contains { action in
+            guard let shortcut = ShortcutStore.shortcut(for: action) else { return false }
+            return shortcut.isModifierOnly && shortcut.keyCode == UInt16(kVK_RightOption)
+        }
+    }
+
+    /// Steps through the enabled modes in order, wrapping around, and shows the new one.
+    private func selectNextMode() {
+        let modeManager = ModeManager.shared
+        let modes = modeManager.enabledConfigurations
+        guard modes.count > 1 else { return }
+
+        let currentIndex = modes.firstIndex { $0.id == modeManager.currentEffectiveConfiguration?.id } ?? -1
+        modeManager.setActiveConfiguration(modes[(currentIndex + 1) % modes.count])
+        modeManager.announceActiveMode()
+    }
+
     private func handleModeSelectionShortcut(index: Int) {
         guard canUseModeShortcuts else { return }
 
@@ -213,6 +249,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
 
         let selectedConfig = availableConfigurations[index]
         modeManager.setActiveConfiguration(selectedConfig)
+        modeManager.announceActiveMode()
     }
 
     deinit {

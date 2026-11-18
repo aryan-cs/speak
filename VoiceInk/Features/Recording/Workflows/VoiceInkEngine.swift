@@ -294,6 +294,14 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                 return
                             }
 
+                            // Recording starts in the default mode unless an app's mode or a mode's own
+                            // shortcut picked another, so only then is there something to point out.
+                            if let effective = ModeManager.shared.currentEffectiveConfiguration,
+                                effective.id != ModeManager.shared.getDefaultConfiguration()?.id
+                            {
+                                ModeManager.shared.announceActiveMode()
+                            }
+
                             self.startRecordingContextCapture()
 
                             let modelResolution = ModeRuntimeResolver.transcriptionModelResolution(
@@ -533,9 +541,22 @@ class VoiceInkEngine: NSObject, ObservableObject {
         contextStore: RecordingContextSnapshotStore?,
         sendAfterPaste: Bool
     ) async {
+        let modeTranscriptionConfiguration = ModeRuntimeResolver.transcriptionConfiguration(
+            transcriptionModelManager: transcriptionModelManager)
+        var session = currentSession
+        if let sessionConfiguration = currentSessionTranscriptionConfiguration,
+            let modeTranscriptionConfiguration,
+            modeTranscriptionConfiguration.model.selectionKey != sessionConfiguration.model.selectionKey
+        {
+            logger.notice(
+                "Mode switched during recording; transcribing with \(modeTranscriptionConfiguration.model.displayName, privacy: .public) instead of \(sessionConfiguration.model.displayName, privacy: .public)"
+            )
+            session?.cancel()
+            session = nil
+            currentSessionTranscriptionConfiguration = nil
+        }
         guard
-            let transcriptionConfiguration = currentSessionTranscriptionConfiguration
-                ?? ModeRuntimeResolver.transcriptionConfiguration(transcriptionModelManager: transcriptionModelManager)
+            let transcriptionConfiguration = currentSessionTranscriptionConfiguration ?? modeTranscriptionConfiguration
         else {
             transcription.text = String(localized: "Transcription Failed: No model selected")
             transcription.transcriptionStatus = TranscriptionStatus.failed.rawValue
@@ -545,7 +566,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
             return
         }
 
-        let session = currentSession
         let transcriptionID = transcription.id
         activePipelineTranscriptionID = transcriptionID
 
@@ -656,6 +676,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
         }
 
         ModeManager.shared.setActiveConfiguration(triggeredMode)
+        ModeManager.shared.announceActiveMode()
         return processedText
     }
 

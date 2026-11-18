@@ -538,6 +538,17 @@ class ModeManager: ObservableObject {
         return target.id == previousEffectiveConfigurationId ? nil : target
     }
 
+    /// Briefly shows which mode is active, in the pop-up above the recorder.
+    @MainActor
+    func announceActiveMode() {
+        guard let config = currentEffectiveConfiguration else { return }
+        NotificationManager.shared.showNotification(
+            title: config.name,
+            type: .info,
+            duration: 1.5
+        )
+    }
+
     private func notifyActiveConfigurationChange(_ config: ModeConfig?) {
         guard let config else { return }
 
