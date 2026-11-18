@@ -7,9 +7,9 @@ final class GlassHostView: NSView {
     private let compositorAwakener = NSVisualEffectView()
     private let glassView = NSGlassEffectView()
 
-    /// Dims the glass like the Dock's: matched against the Dock over the same background with the
-    /// system's glass tint setting at its default.
-    static let dockMatchedTint = NSColor.black.withAlphaComponent(0.34)
+    /// Dims the glass like the Dock's: matched against the real Dock over gray backgrounds from 14%
+    /// to 50% with the system's glass tint setting at its default (within one level of 255 above 30%).
+    static let dockMatchedTint = NSColor.black.withAlphaComponent(0.28)
 
     var cornerRadius: CGFloat {
         didSet {
