@@ -61,7 +61,7 @@ final class NotificationManager {
         let hostingController = NSHostingController(rootView: notificationView)
         let size = hostingController.view.fittingSize
 
-        let panel = NSPanel(
+        let panel = ActiveGlassPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,

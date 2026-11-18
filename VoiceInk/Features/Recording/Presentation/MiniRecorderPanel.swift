@@ -1,7 +1,7 @@
 import AppKit
 import os
 
-class MiniRecorderPanel: NSPanel {
+class MiniRecorderPanel: ActiveGlassPanel {
     // Key status lets the assistant follow-up field take typing; the panel stays non-activating.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
