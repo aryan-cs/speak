@@ -43,6 +43,7 @@ class TranscriptionPipeline {
     ///   - transcription: The pending Transcription SwiftData object to populate and save.
     ///   - audioURL: The recorded audio file.
     ///   - transcriptionConfiguration: Mode-resolved transcription engine settings for this phase.
+    ///   - transcriptionFallbackModel: An on-device model to use when a cloud model fails.
     ///   - session: An active streaming session if one was prepared, otherwise nil.
     ///   - onStateChange: Called when the pipeline moves to a new recording state (e.g. `.enhancing`).
     ///   - shouldCancel: Returns true if the user requested cancellation.
@@ -52,6 +53,7 @@ class TranscriptionPipeline {
         transcription: Transcription,
         audioURL: URL,
         transcriptionConfiguration: TranscriptionRuntimeConfiguration,
+        transcriptionFallbackModel: (any TranscriptionModel)? = nil,
         formattingConfiguration resolveFormattingConfiguration: @escaping () -> TranscriptionFormattingConfiguration,
         session: TranscriptionSession?,
         triggerWordModeSelection: @escaping (String) -> String? = { _ in nil },
@@ -66,6 +68,7 @@ class TranscriptionPipeline {
         assistant: AssistantHooks = .inactive
     ) async {
         let model = transcriptionConfiguration.model
+        var transcribedModel = model
         var finalText: String?
         var responseError: String?
         var outputForDelivery: OutputRuntimeConfiguration?
@@ -101,16 +104,24 @@ class TranscriptionPipeline {
 
         do {
             let transcriptionStart = Date()
-            var text: String
-            if let session {
-                text = try await session.transcribe(audioURL: audioURL)
-            } else {
-                text = try await serviceRegistry.transcribe(
+            let transcribed = try await serviceRegistry.transcribe(
+                audioURL: audioURL,
+                primaryModel: model,
+                language: transcriptionConfiguration.language,
+                fallbackModel: transcriptionFallbackModel,
+                shouldCancel: shouldCancel
+            ) {
+                if let session {
+                    return try await session.transcribe(audioURL: audioURL)
+                }
+                return try await self.serviceRegistry.transcribe(
                     audioURL: audioURL,
                     model: model,
                     context: transcriptionConfiguration.requestContext
                 )
             }
+            var text = transcribed.text
+            transcribedModel = transcribed.model
             text = TranscriptionOutputFilter.filter(text)
             text = await SilenceHallucinationGuard.filter(text, audioURL: audioURL)
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
@@ -147,7 +158,7 @@ class TranscriptionPipeline {
 
             transcription.text = cleanedText
             transcription.duration = actualDuration
-            transcription.transcriptionModelName = model.displayName
+            transcription.transcriptionModelName = transcribedModel.displayName
             transcription.transcriptionDuration = transcriptionDuration
             transcription.modeName = modeMetadata.name
             transcription.modeEmoji = modeMetadata.emoji
@@ -202,6 +213,8 @@ class TranscriptionPipeline {
                             contextSnapshot: contextSnapshot
                         )
                         transcription.enhancedText = enhancementResult.text
+                        transcription.aiEnhancementModelName =
+                            enhancementResult.modelName ?? transcription.aiEnhancementModelName
                         transcription.promptName =
                             enhancementResult.promptName ?? resolvedEnhancementConfiguration.prompt?.title
                         transcription.enhancementDuration = enhancementResult.duration
@@ -254,7 +267,7 @@ class TranscriptionPipeline {
                 do {
                     didInsertSessionMetric = try SessionMetricRecorder.recordRecorderSession(
                         transcription: transcription,
-                        model: model,
+                        model: transcribedModel,
                         in: modelContext
                     )
                 } catch {

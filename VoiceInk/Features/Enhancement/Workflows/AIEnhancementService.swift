@@ -10,6 +10,8 @@ struct AIEnhancementResult: Sendable {
     let promptName: String?
     let systemMessage: String?
     let userMessage: String?
+    /// The model that wrote the result, which is a backup when the mode's own model failed.
+    let modelName: String?
 }
 
 @MainActor
@@ -396,33 +398,73 @@ class AIEnhancementService: ObservableObject {
     ) async throws -> AIEnhancementResult {
         let startTime = Date()
         let promptName = configuration.prompt?.title
+        let candidates = enhancementCandidates(for: configuration)
+        var lastError: Error = EnhancementError.notConfigured
 
-        do {
-            let requestResult = try await makeRequestWithRetry(
-                text: text,
-                configuration: configuration,
-                contextSnapshot: contextSnapshot,
-                maxAttempts: EnhancementRequestSettings.maximumAttempts
-            )
-            let endTime = Date()
-            let duration = endTime.timeIntervalSince(startTime)
-            return AIEnhancementResult(
-                text: requestResult.text,
-                duration: duration,
-                promptName: promptName,
-                systemMessage: requestResult.systemMessage,
-                userMessage: requestResult.userMessage
-            )
-        } catch {
-            let errorDescription = EnhancementFailureFormatter.description(for: error)
-            let providerName = configuration.provider?.rawValue ?? "Unconfigured"
-            let modelName = configuration.modelName ?? configuration.provider?.defaultModel ?? "Unconfigured"
-            let duration = Date().timeIntervalSince(startTime)
-            logger.error(
-                "Enhancement failed provider=\(providerName, privacy: .public) model=\(modelName, privacy: .public) duration=\(duration, format: .fixed(precision: 3), privacy: .public)s: \(errorDescription, privacy: .public)"
-            )
-            throw error
+        for (index, candidate) in candidates.enumerated() {
+            let isLastCandidate = index == candidates.count - 1
+            let candidateModel = candidate.modelName ?? candidate.provider?.defaultModel ?? "Unconfigured"
+            do {
+                // With a backup waiting, a refused request moves on instead of retrying the same model.
+                let requestResult = try await makeRequestWithRetry(
+                    text: text,
+                    configuration: candidate,
+                    contextSnapshot: contextSnapshot,
+                    maxAttempts: isLastCandidate ? EnhancementRequestSettings.maximumAttempts : 1
+                )
+                if candidate.provider != configuration.provider || candidate.modelName != configuration.modelName {
+                    logger.notice(
+                        "Enhanced with backup provider=\(candidate.provider?.rawValue ?? "?", privacy: .public) model=\(candidateModel, privacy: .public)"
+                    )
+                }
+                return AIEnhancementResult(
+                    text: requestResult.text,
+                    duration: Date().timeIntervalSince(startTime),
+                    promptName: promptName,
+                    systemMessage: requestResult.systemMessage,
+                    userMessage: requestResult.userMessage,
+                    modelName: candidateModel
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                let errorDescription = EnhancementFailureFormatter.description(for: error)
+                let providerName = candidate.provider?.rawValue ?? "Unconfigured"
+                if case EnhancementError.rateLimitExceeded = error, let provider = candidate.provider {
+                    ModelCooldowns.coolDown(provider: provider, model: candidateModel)
+                }
+                logger.error(
+                    "Enhancement failed provider=\(providerName, privacy: .public) model=\(candidateModel, privacy: .public) duration=\(Date().timeIntervalSince(startTime), format: .fixed(precision: 3), privacy: .public)s\(isLastCandidate ? "" : "; trying a backup", privacy: .public): \(errorDescription, privacy: .public)"
+                )
+            }
         }
+        throw lastError
+    }
+
+    /// The mode's model, then its configured backups, leaving out models still cooling down after
+    /// a rate limit unless that would leave nothing to try.
+    private func enhancementCandidates(for configuration: EnhancementRuntimeConfiguration)
+        -> [EnhancementRuntimeConfiguration]
+    {
+        guard let provider = configuration.provider, provider != .voiceInkRefine else { return [configuration] }
+        let primaryModel = configuration.modelName ?? provider.defaultModel
+        let backups = ModelFallbackSettings.enhancementFallbacks(
+            primary: provider, model: primaryModel, aiService: aiService
+        )
+        .compactMap { backup -> EnhancementRuntimeConfiguration? in
+            guard let backupProvider = backup.provider else { return nil }
+            let candidate = configuration.replacingModel(provider: backupProvider, modelName: backup.model)
+            return isConfigured(for: candidate) ? candidate : nil
+        }
+
+        let candidates = [configuration] + backups
+        let ready = candidates.filter { candidate in
+            guard let candidateProvider = candidate.provider else { return true }
+            return !ModelCooldowns.isCoolingDown(
+                provider: candidateProvider, model: candidate.modelName ?? candidateProvider.defaultModel)
+        }
+        return ready.isEmpty ? candidates : ready
     }
 
     func captureScreenContext() async {

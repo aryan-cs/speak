@@ -248,6 +248,24 @@ struct VoiceInkTests {
                 == "Keep the lighter fill. Thank you. Things aren't aligned.")
     }
 
+    @MainActor
+    @Test func rateLimitedModelsAreSkippedForAMinute() {
+        ModelCooldowns.coolDown(provider: .groq, model: "test-model-a")
+        #expect(ModelCooldowns.isCoolingDown(provider: .groq, model: "test-model-a"))
+        #expect(!ModelCooldowns.isCoolingDown(provider: .groq, model: "test-model-b"))
+        ModelCooldowns.coolDown(provider: .groq, model: "test-model-a", seconds: -1)
+        #expect(!ModelCooldowns.isCoolingDown(provider: .groq, model: "test-model-a"))
+    }
+
+    @Test func onDeviceFallbackOnlyAppliesToCloudModels() throws {
+        let groq = try #require(TranscriptionModelRegistry.models.first { $0.name == "whisper-large-v3-turbo" })
+        let parakeet = try #require(TranscriptionModelRegistry.models.first { $0.name == "parakeet-ultra" })
+        #expect(!ModelFallbackSettings.runsOnDevice(groq))
+        #expect(ModelFallbackSettings.runsOnDevice(parakeet))
+        #expect(ModelFallbackSettings.transcriptionFallback(for: parakeet, usableModels: [groq, parakeet]) == nil)
+        #expect(ModelFallbackSettings.automaticTranscriptionFallback(in: [parakeet])?.name == "parakeet-ultra")
+    }
+
     @Test func vocabularyBoostingNeverPadsTheCtcWindowWithSilence() {
         // Silence padding left the CTC model with no output for clips under ~5 s and for the
         // last window of longer audio, so every window must hold real audio.

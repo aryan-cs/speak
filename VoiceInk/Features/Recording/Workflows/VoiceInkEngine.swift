@@ -553,6 +553,10 @@ class VoiceInkEngine: NSObject, ObservableObject {
             transcription: transcription,
             audioURL: audioURL,
             transcriptionConfiguration: transcriptionConfiguration,
+            transcriptionFallbackModel: ModelFallbackSettings.transcriptionFallback(
+                for: transcriptionConfiguration.model,
+                usableModels: transcriptionModelManager.usableModels
+            ),
             formattingConfiguration: {
                 ModeRuntimeResolver.transcriptionFormattingConfiguration()
             },

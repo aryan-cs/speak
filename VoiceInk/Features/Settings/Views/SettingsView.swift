@@ -185,6 +185,8 @@ struct SettingsView: View {
                 }
             }
 
+            ModelFallbackSettingsSection()
+
             Section("Interface") {
                 Picker("Appearance", selection: $appAppearancePreference) {
                     ForEach(AppAppearancePreference.allCases) { preference in

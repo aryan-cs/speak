@@ -131,7 +131,8 @@ class AudioTranscriptionService: ObservableObject {
                         enhancedText: enhancementResult.text,
                         audioFileURL: permanentURLString,
                         transcriptionModelName: model.displayName,
-                        aiEnhancementModelName: enhancementConfiguration.modelName
+                        aiEnhancementModelName: enhancementResult.modelName
+                            ?? enhancementConfiguration.modelName
                             ?? enhancementConfiguration.provider?.defaultModel,
                         promptName: enhancementResult.promptName
                             ?? enhancementConfiguration.prompt?.title,

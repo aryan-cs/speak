@@ -36,6 +36,19 @@ struct EnhancementRuntimeConfiguration {
     let useSelectedTextContext: Bool
     let useScreenCaptureContext: Bool
 
+    func replacingModel(provider: AIProvider, modelName: String) -> EnhancementRuntimeConfiguration {
+        EnhancementRuntimeConfiguration(
+            mode: mode,
+            isEnabled: isEnabled,
+            prompt: prompt,
+            provider: provider,
+            modelName: modelName,
+            useClipboardContext: useClipboardContext,
+            useSelectedTextContext: useSelectedTextContext,
+            useScreenCaptureContext: useScreenCaptureContext
+        )
+    }
+
     func replacingPrompt(_ prompt: CustomPrompt) -> EnhancementRuntimeConfiguration {
         EnhancementRuntimeConfiguration(
             mode: mode,
