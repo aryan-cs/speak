@@ -4,7 +4,7 @@ import os
 
 @MainActor
 class MiniWindowManager: ObservableObject {
-    private static let compactContentSize = NSSize(width: 112, height: 40)
+    private static let compactContentSize = NSSize(width: 112, height: 34)
 
     @Published var isVisible = false
     private var windowController: NSWindowController?

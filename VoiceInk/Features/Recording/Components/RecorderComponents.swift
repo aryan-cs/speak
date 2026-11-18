@@ -342,28 +342,35 @@ struct RecorderStatusDisplay: View {
     let currentState: RecordingState
     let audioMeterProvider: () -> AudioMeter
     let menuBarHeight: CGFloat?
+    /// Tallest the waveform and processing animation get.
+    let visualizerHeight: CGFloat
 
     init(
         currentState: RecordingState,
         audioMeterProvider: @escaping () -> AudioMeter,
-        menuBarHeight: CGFloat? = nil
+        menuBarHeight: CGFloat? = nil,
+        visualizerHeight: CGFloat = 28
     ) {
         self.currentState = currentState
         self.audioMeterProvider = audioMeterProvider
         self.menuBarHeight = menuBarHeight
+        self.visualizerHeight = visualizerHeight
     }
 
     var body: some View {
         Group {
             if currentState == .enhancing {
-                ProcessingStatusDisplay(mode: .enhancing, color: .white).transition(.opacity)
+                ProcessingStatusDisplay(mode: .enhancing, color: .white, height: visualizerHeight)
+                    .transition(.opacity)
             } else if currentState == .transcribing {
-                ProcessingStatusDisplay(mode: .transcribing, color: .white).transition(.opacity)
+                ProcessingStatusDisplay(mode: .transcribing, color: .white, height: visualizerHeight)
+                    .transition(.opacity)
             } else if currentState == .recording {
                 AudioVisualizer(
                     audioMeterProvider: audioMeterProvider,
                     color: .white,
-                    isActive: true
+                    isActive: true,
+                    maxHeight: visualizerHeight
                 )
                     .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)

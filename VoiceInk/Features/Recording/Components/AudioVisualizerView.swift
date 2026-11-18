@@ -10,12 +10,13 @@ struct AudioVisualizer: View {
     private let barWidth: CGFloat = 3
     private let barSpacing: CGFloat = 2
     private let minHeight: CGFloat = 4
-    private let maxHeight: CGFloat = 28
+    private let maxHeight: CGFloat
 
-    init(audioMeterProvider: @escaping () -> AudioMeter, color: Color, isActive: Bool) {
+    init(audioMeterProvider: @escaping () -> AudioMeter, color: Color, isActive: Bool, maxHeight: CGFloat = 28) {
         self.audioMeterProvider = audioMeterProvider
         self.color = color
         self.isActive = isActive
+        self.maxHeight = maxHeight
     }
 
     var body: some View {
@@ -77,6 +78,7 @@ struct ProcessingStatusDisplay: View {
 
     let mode: Mode
     let color: Color
+    var height: CGFloat = 28
 
     private var animationSpeed: Double {
         switch mode {
@@ -87,6 +89,6 @@ struct ProcessingStatusDisplay: View {
 
     var body: some View {
         ProgressAnimation(color: color, animationSpeed: animationSpeed)
-        .frame(height: 28) // matches AudioVisualizer maxHeight to prevent layout shift
+        .frame(height: height) // matches AudioVisualizer maxHeight to prevent layout shift
     }
 }

@@ -112,7 +112,7 @@ final class NotificationManager {
     }
 
     /// Just above the recorder pill when it is showing, centered on it; otherwise where the
-    /// pop-up would sit above a 40 pt pill at the bottom of the screen.
+    /// pop-up would sit above a 34 pt pill at the bottom of the screen.
     private func positionWindow(_ window: NSWindow) {
         let size = window.frame.size
         if let recorder = visibleRecorderPanel {
@@ -128,7 +128,7 @@ final class NotificationManager {
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         let screenRect = activeScreen.visibleFrame
         let recorderBottomMargin: CGFloat = 16
-        let recorderHeight: CGFloat = 40
+        let recorderHeight: CGFloat = 34
         window.setFrameOrigin(
             NSPoint(
                 x: (screenRect.midX - size.width / 2).rounded(),

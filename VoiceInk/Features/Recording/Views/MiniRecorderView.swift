@@ -14,14 +14,15 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
     // MARK: - Layout Constants
 
-    private let controlBarHeight: CGFloat = 40
+    private let controlBarHeight: CGFloat = 34
+    private let visualizerHeight: CGFloat = 24
     private let compactWidth: CGFloat = 112
     private let expandedWidth: CGFloat = 300
     private let assistantWidth: CGFloat = 520
     // AssistantPanelView has a fixed height.
     private let assistantPanelHeight: CGFloat = 320
     private let liveTranscriptHeight: CGFloat = 57
-    private let compactCornerRadius: CGFloat = 20
+    private let compactCornerRadius: CGFloat = 17
     private let expandedCornerRadius: CGFloat = 14
 
     private var pillWidth: CGFloat {
@@ -71,7 +72,8 @@ struct MiniRecorderView<S: RecorderStateProvider & ObservableObject>: View {
 
             RecorderStatusDisplay(
                 currentState: stateProvider.recordingState,
-                audioMeterProvider: recorder.audioMeterSnapshot
+                audioMeterProvider: recorder.audioMeterSnapshot,
+                visualizerHeight: visualizerHeight
             )
 
             Spacer(minLength: 0)

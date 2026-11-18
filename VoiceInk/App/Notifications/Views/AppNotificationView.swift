@@ -18,15 +18,15 @@ struct AppNotificationView: View {
         case success
     }
 
-    /// A slimmer capsule than the 40 pt recorder pill, in the same glass and controls.
-    static let defaultHeight: CGFloat = 24
+    /// Styled like the Dock's hover labels: a slim capsule with 14 pt regular text.
+    static let defaultHeight: CGFloat = 22
     var height: CGFloat = Self.defaultHeight
     /// The pill's 21 pt controls, scaled down for shorter capsules.
-    private var controlSize: CGFloat { min(21, height - 8) }
+    private var controlSize: CGFloat { min(21, height - 6) }
     /// Gap between the controls and the capsule's end, repeated between the controls.
     private var controlInset: CGFloat { max(4, (height - controlSize) / 2) }
     /// Gap between the text and the capsule's end.
-    private var textInset: CGFloat { max(12, height * 0.45) }
+    private var textInset: CGFloat { 14 }
 
     // Capsule, like the recorder pill it sits above.
     private var shape: Capsule {
@@ -36,7 +36,7 @@ struct AppNotificationView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 14, weight: .regular))
                 .foregroundColor(.white)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
