@@ -23,8 +23,6 @@ struct AppNotificationView: View {
     var height: CGFloat = Self.defaultHeight
     /// The pill's 21 pt controls, scaled down for shorter capsules.
     private var controlSize: CGFloat { min(21, height - 6) }
-    /// Gap between the controls and the capsule's end, repeated between the controls.
-    private var controlInset: CGFloat { max(4, (height - controlSize) / 2) }
     /// Gap between the text and the capsule's end.
     private var textInset: CGFloat { 14 }
 
@@ -46,21 +44,12 @@ struct AppNotificationView: View {
                     actionButton.action()
                     onClose()
                 }) {
-                    // The recorder pill's control style.
-                    ZStack {
-                        Circle()
-                            .fill(Color.white.opacity(0.13))
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
-                            )
-
-                        Image(systemName: actionButton.systemImage)
-                            .font(.system(size: controlSize * 0.43, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.86))
-                    }
-                    .frame(width: controlSize, height: controlSize)
-                    .contentShape(Circle())
+                    // Just the icon, in the label's color, like the Dock's plain controls.
+                    Image(systemName: actionButton.systemImage)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: controlSize, height: controlSize)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(actionButton.label)
@@ -69,7 +58,8 @@ struct AppNotificationView: View {
         }
         // The capsule hugs its text; an action button sits concentric with its end.
         .padding(.leading, textInset)
-        .padding(.trailing, actionButton == nil ? textInset : controlInset)
+        // The icon's frame is wider than its glyph, so it needs a little less inset than text.
+        .padding(.trailing, actionButton == nil ? textInset : textInset - 4)
         .frame(maxWidth: 750, minHeight: height)
         .background {
             // Before Liquid Glass, a dark surface stands in for the pill's glass.
