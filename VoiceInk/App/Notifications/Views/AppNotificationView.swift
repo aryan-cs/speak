@@ -19,12 +19,14 @@ struct AppNotificationView: View {
     }
 
     /// A slimmer capsule than the 40 pt recorder pill, in the same glass and controls.
-    static let defaultHeight: CGFloat = 30
+    static let defaultHeight: CGFloat = 24
     var height: CGFloat = Self.defaultHeight
     /// The pill's 21 pt controls, scaled down for shorter capsules.
     private var controlSize: CGFloat { min(21, height - 8) }
     /// Gap between the controls and the capsule's end, repeated between the controls.
     private var controlInset: CGFloat { max(4, (height - controlSize) / 2) }
+    /// Gap between the text and the capsule's end.
+    private var textInset: CGFloat { max(12, height * 0.45) }
 
     // Capsule, like the recorder pill it sits above.
     private var shape: Capsule {
@@ -39,44 +41,36 @@ struct AppNotificationView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
 
-            Spacer(minLength: 0)
+            if let actionButton {
+                Button(action: {
+                    actionButton.action()
+                    onClose()
+                }) {
+                    // The recorder pill's control style.
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.13))
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
+                            )
 
-            HStack(spacing: controlInset) {
-                if let actionButton {
-                    Button(action: {
-                        actionButton.action()
-                        onClose()
-                    }) {
-                        // The recorder pill's control style.
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.13))
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
-                                )
-
-                            Image(systemName: actionButton.systemImage)
-                                .font(.system(size: controlSize * 0.43, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.86))
-                        }
-                        .frame(width: controlSize, height: controlSize)
-                        .contentShape(Circle())
+                        Image(systemName: actionButton.systemImage)
+                            .font(.system(size: controlSize * 0.43, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.86))
                     }
-                    .buttonStyle(.plain)
-                    .help(actionButton.label)
-                    .accessibilityLabel(actionButton.label)
-                }
-
-                RecorderCloseButton(action: onClose)
-                    .scaleEffect(controlSize / 21)
                     .frame(width: controlSize, height: controlSize)
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(actionButton.label)
+                .accessibilityLabel(actionButton.label)
             }
         }
-        // Controls sit concentric with the capsule's end.
-        .padding(.leading, max(12, height * 0.45))
-        .padding(.trailing, controlInset)
-        .frame(minWidth: 180, maxWidth: 750, minHeight: height)
+        // The capsule hugs its text; an action button sits concentric with its end.
+        .padding(.leading, textInset)
+        .padding(.trailing, actionButton == nil ? textInset : controlInset)
+        .frame(maxWidth: 750, minHeight: height)
         .background {
             // Before Liquid Glass, a dark surface stands in for the pill's glass.
             if !usesExternalGlass {
@@ -90,11 +84,10 @@ struct AppNotificationView: View {
             }
         }
         .contentShape(shape)
+        // With no close button, a tap dismisses the pill.
         .onTapGesture {
-            if let onTap = onTap {
-                onTap()
-                onClose()
-            }
+            onTap?()
+            onClose()
         }
     }
 }

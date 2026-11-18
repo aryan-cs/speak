@@ -8,6 +8,11 @@ final class NotificationManager {
     private var notificationWindow: NSPanel?
     private var dismissTimer: Timer?
     private var notificationID: UUID?
+    /// Repositions the pop-up while the recorder resizes, e.g. when the live transcript appears.
+    private var recorderFrameObserver: NSObjectProtocol?
+
+    /// Gap between the pop-up and the top of the recorder pill.
+    private static let gapAboveRecorder: CGFloat = 6
 
     private init() {}
 
@@ -79,6 +84,7 @@ final class NotificationManager {
         panel.isMovableByWindowBackground = false
 
         positionWindow(panel)
+        observeRecorderFrame()
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil as Any?)
 
@@ -101,21 +107,53 @@ final class NotificationManager {
         }
     }
 
+    private var visibleRecorderPanel: MiniRecorderPanel? {
+        NSApp.windows.lazy.compactMap { $0 as? MiniRecorderPanel }.first { $0.isVisible }
+    }
+
+    /// Just above the recorder pill when it is showing, centered on it; otherwise where the
+    /// pop-up would sit above a 40 pt pill at the bottom of the screen.
     private func positionWindow(_ window: NSWindow) {
+        let size = window.frame.size
+        if let recorder = visibleRecorderPanel {
+            let recorderFrame = recorder.frame
+            window.setFrameOrigin(
+                NSPoint(
+                    x: (recorderFrame.midX - size.width / 2).rounded(),
+                    y: recorderFrame.maxY + Self.gapAboveRecorder
+                ))
+            return
+        }
+
         let activeScreen = NSApp.keyWindow?.screen ?? NSScreen.main ?? NSScreen.screens[0]
         let screenRect = activeScreen.visibleFrame
-        let notificationRect = window.frame
+        let recorderBottomMargin: CGFloat = 16
+        let recorderHeight: CGFloat = 40
+        window.setFrameOrigin(
+            NSPoint(
+                x: (screenRect.midX - size.width / 2).rounded(),
+                y: screenRect.minY + recorderBottomMargin + recorderHeight + Self.gapAboveRecorder
+            ))
+    }
 
-        // Position notification centered horizontally on screen
-        let notificationX = screenRect.midX - (notificationRect.width / 2)
+    private func observeRecorderFrame() {
+        stopObservingRecorderFrame()
+        guard let recorder = visibleRecorderPanel else { return }
+        recorderFrameObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResizeNotification, object: recorder, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window = self.notificationWindow else { return }
+                self.positionWindow(window)
+            }
+        }
+    }
 
-        // Position notification near bottom of screen with appropriate spacing
-        let bottomPadding: CGFloat = 24
-        let componentHeight: CGFloat = 34
-        let notificationSpacing: CGFloat = 16
-        let notificationY = screenRect.minY + bottomPadding + componentHeight + notificationSpacing
-
-        window.setFrameOrigin(NSPoint(x: notificationX, y: notificationY))
+    private func stopObservingRecorderFrame() {
+        if let recorderFrameObserver {
+            NotificationCenter.default.removeObserver(recorderFrameObserver)
+            self.recorderFrameObserver = nil
+        }
     }
 
     func dismissNotification() {
@@ -123,6 +161,7 @@ final class NotificationManager {
 
         notificationWindow = nil
         notificationID = nil
+        stopObservingRecorderFrame()
 
         dismissTimer?.invalidate()
         dismissTimer = nil
