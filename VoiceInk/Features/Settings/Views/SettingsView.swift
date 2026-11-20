@@ -25,6 +25,7 @@ struct SettingsView: View {
     @AppStorage(AppLanguagePreference.userDefaultsKey) private var appLanguagePreference = AppLanguagePreference
         .systemValue
     @AppStorage(FinishAndSendSettings.key) private var finishAndSendKey = FinishAndSendKey.none.rawValue
+    @AppStorage(RecorderWaveformStyle.userDefaultsKey) private var recorderWaveformStyle = RecorderWaveformStyle.classic
     @State private var showResetOnboardingAlert = false
     @State private var showLanguageRestartAlert = false
     @State private var cancelRecordingShortcutRecorderResetID = 0
@@ -217,6 +218,13 @@ struct SettingsView: View {
 
                 Picker("Recorder Style", selection: $recorderUIManager.recorderPanelStyle) {
                     ForEach(RecorderPanelStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Waveform", selection: $recorderWaveformStyle) {
+                    ForEach(RecorderWaveformStyle.allCases) { style in
                         Text(style.displayName).tag(style)
                     }
                 }

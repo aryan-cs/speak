@@ -224,7 +224,8 @@ class Recorder: NSObject, ObservableObject {
         let audioMeter = AudioMeter(
             averagePower: Double(smoothedAverage),
             peakPower: Double(smoothedPeak),
-            bands: bands
+            bands: bands,
+            loudnessDb: Double(averagePower)
         )
         smoothedValuesLock.unlock()
 
@@ -256,4 +257,6 @@ struct AudioMeter: Equatable {
     let peakPower: Double
     /// Level (0...1) per frequency band, lowest first; empty when no spectrum is available.
     var bands: [Double] = []
+    /// Loudness of the latest audio buffer in dBFS (RMS), unsmoothed.
+    var loudnessDb: Double = -160
 }

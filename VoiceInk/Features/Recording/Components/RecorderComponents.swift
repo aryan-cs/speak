@@ -344,6 +344,7 @@ struct RecorderStatusDisplay: View {
     let menuBarHeight: CGFloat?
     /// Tallest the waveform and processing animation get.
     let visualizerHeight: CGFloat
+    @AppStorage(RecorderWaveformStyle.userDefaultsKey) private var waveformStyle = RecorderWaveformStyle.classic
 
     init(
         currentState: RecordingState,
@@ -364,6 +365,16 @@ struct RecorderStatusDisplay: View {
                     .transition(.opacity)
             } else if currentState == .transcribing {
                 ProcessingStatusDisplay(mode: .transcribing, color: .white, height: visualizerHeight)
+                    .transition(.opacity)
+            } else if waveformStyle != .classic {
+                LoudnessWaveform(
+                    style: waveformStyle,
+                    audioMeterProvider: audioMeterProvider,
+                    isActive: currentState == .recording,
+                    // The newer styles sit lower in the pill than the classic bars.
+                    maxHeight: (visualizerHeight * 0.75).rounded()
+                )
+                    .scaleEffect(y: menuBarHeight != nil ? min(1.0, (menuBarHeight! - 8) / 25) : 1.0, anchor: .center)
                     .transition(.opacity)
             } else if currentState == .recording {
                 AudioVisualizer(
