@@ -283,6 +283,28 @@ struct VoiceInkTests {
         #expect(ParakeetVocabularyBooster.filledForModelWindow([]).isEmpty)
     }
 
+    @Test func vocabularyBoostingKeepsEverydayWordsItWouldOnlyLengthen() async {
+        // Replays of real recordings: a spoken "code" became "Codex", and the transcript's
+        // punctuation ("code.", "model.") hid the word from the everyday check entirely.
+        let words: Set<String> = ["code", "coded", "model", "grok", "astro", "include"]
+        let isEverydayWord: @Sendable (String) async -> Bool = { words.contains($0.lowercased()) }
+        func rewrites(_ phrase: String, _ term: String, _ similarity: Float) async -> Bool {
+            await ParakeetVocabularyBooster.rewritesEverydayWord(
+                phrase, into: term, similarity: similarity, isEverydayWord: isEverydayWord)
+        }
+
+        #expect(await rewrites("code", "Codex", 0.8))
+        #expect(await rewrites("code.", "Codex", 0.8))
+        #expect(await rewrites("coded", "Codex", 0.8))
+        #expect(await rewrites("model.", "Codex", 0.6))
+        #expect(await rewrites("Include", "Claude", 0.6))
+        // Still corrected: a different spelling of the same sound, a non-word, and phrases.
+        #expect(!(await rewrites("grok,", "Groq", 0.75)))
+        #expect(!(await rewrites("Astro", "Astra", 0.8)))
+        #expect(!(await rewrites("GRO", "Groq", 0.75)))
+        #expect(!(await rewrites("voice sync", "VoiceInk", 0.7)))
+    }
+
     @MainActor
     @Test func autoLearnTellsMisheardNamesFromEverydayWords() {
         // Misheard names seen in real runs; automatic language detection accepted them as words.

@@ -14,6 +14,9 @@ import os
 /// - The spotter-rescue pass is off, and a single everyday word needs a close spelling to the
 ///   term. Rescue replaced ordinary words ("code" → "Claude"); the spelling floor stops
 ///   "Include" → "Claude" while keeping "grok" → "Groq".
+/// - A single everyday word is never lengthened into a term that starts with a real word it
+///   shares ("code" and "coded" became "Codex"), and the check ignores the punctuation the
+///   transcript attaches to a word, which let "code." and even "model." through.
 actor ParakeetVocabularyBooster {
     struct Evidence: Sendable {
         let logProbs: [[Float]]
@@ -121,10 +124,12 @@ actor ParakeetVocabularyBooster {
         for candidate in output.candidates where candidate.legacyOutcome == .applied {
             guard let range = candidate.baseTextUTF8Range else { continue }
             let phrase = candidate.basePhrase
-            if !phrase.contains(where: \.isWhitespace),
-                candidate.similarity < Self.everydayWordMinimumSimilarity,
-                await isEverydayWord(phrase)
-            {
+            if await Self.rewritesEverydayWord(
+                phrase,
+                into: candidate.canonicalTerm,
+                similarity: candidate.similarity,
+                isEverydayWord: isEverydayWord
+            ) {
                 continue
             }
             accepted.append((range, Replacement(original: phrase, term: candidate.canonicalTerm)))
@@ -139,6 +144,30 @@ actor ParakeetVocabularyBooster {
         }
         let text = String(decoding: utf8, as: UTF8.self)
         return (text, text == transcript ? [] : accepted.map(\.replacement))
+    }
+
+    /// Whether replacing `phrase` with `term` would rewrite an ordinary word. Only a single
+    /// everyday word is checked, without the punctuation the transcript attaches to it ("code."):
+    /// - It needs a close spelling to the term.
+    /// - The term must not just lengthen a real word that both start with ("code" and "coded" →
+    ///   "Codex"), or end with the word. The CTC margin around a word lets the sounds next to it
+    ///   count as the added letters.
+    static func rewritesEverydayWord(
+        _ phrase: String,
+        into term: String,
+        similarity: Float,
+        isEverydayWord: @Sendable (String) async -> Bool
+    ) async -> Bool {
+        let word = phrase.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard !word.contains(where: \.isWhitespace), await isEverydayWord(word) else { return false }
+        if similarity < everydayWordMinimumSimilarity { return true }
+
+        let lowercasedWord = word.lowercased()
+        let lowercasedTerm = term.lowercased()
+        if lowercasedTerm.count > lowercasedWord.count, lowercasedTerm.hasSuffix(lowercasedWord) { return true }
+        let stem = String(zip(lowercasedWord, lowercasedTerm).prefix { $0 == $1 }.map(\.0))
+        guard stem.count >= 3, stem.count < lowercasedTerm.count else { return false }
+        return await isEverydayWord(stem)
     }
 
     /// The CTC model reads 15 s windows and pads a short window with silence, which leaves it
