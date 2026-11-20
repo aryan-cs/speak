@@ -56,10 +56,10 @@ struct AppNotificationView: View {
                 .accessibilityLabel(actionButton.label)
             }
         }
-        // The capsule hugs its text; an action button sits concentric with its end.
+        // The capsule hugs its text; an action button sits concentric with its rounded end, with as
+        // much space to its right as above and below it.
         .padding(.leading, textInset)
-        // The icon's frame is wider than its glyph, so it needs a little less inset than text.
-        .padding(.trailing, actionButton == nil ? textInset : textInset - 4)
+        .padding(.trailing, actionButton == nil ? textInset : (height - controlSize) / 2)
         .frame(maxWidth: 750, minHeight: height)
         .background {
             // Before Liquid Glass, a dark surface stands in for the pill's glass.
