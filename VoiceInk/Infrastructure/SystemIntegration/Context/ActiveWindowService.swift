@@ -31,6 +31,9 @@ class ActiveWindowService: ObservableObject {
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication,
             let bundleIdentifier = frontmostApp.bundleIdentifier
         else {
+            if shouldApply(), let config = ModeManager.shared.recordingStartConfiguration {
+                ModeManager.shared.setActiveConfiguration(config)
+            }
             return Task {}
         }
 
@@ -39,7 +42,7 @@ class ActiveWindowService: ObservableObject {
 
         let quickConfig =
             ModeManager.shared.getConfigurationForApp(bundleIdentifier)
-            ?? ModeManager.shared.getDefaultConfiguration()
+            ?? ModeManager.shared.recordingStartConfiguration
 
         if let quickConfig {
             ModeManager.shared.setActiveConfiguration(quickConfig)

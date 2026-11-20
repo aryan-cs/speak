@@ -294,14 +294,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
                                 return
                             }
 
-                            // Recording starts in the default mode unless an app's mode or a mode's own
-                            // shortcut picked another, so only then is there something to point out.
-                            if let effective = ModeManager.shared.currentEffectiveConfiguration,
-                                effective.id != ModeManager.shared.getDefaultConfiguration()?.id
-                            {
-                                ModeManager.shared.announceActiveMode()
-                            }
-
                             self.startRecordingContextCapture()
 
                             let modelResolution = ModeRuntimeResolver.transcriptionModelResolution(
@@ -676,7 +668,6 @@ class VoiceInkEngine: NSObject, ObservableObject {
         }
 
         ModeManager.shared.setActiveConfiguration(triggeredMode)
-        ModeManager.shared.announceActiveMode()
         return processedText
     }
 

@@ -246,6 +246,7 @@ class ModeManager: ObservableObject {
 
     private let configKey = "modeConfigurationsV2"
     private let activeConfigIdKey = "activeConfigurationId"
+    private let lastChosenConfigIdKey = "LastChosenModeId"
 
     private init() {
         loadConfigurations()
@@ -287,6 +288,7 @@ class ModeManager: ObservableObject {
                 configurations[index].isDefault = false
             }
             configuration.isEnabled = true
+            forgetLastChosenConfiguration()
         }
 
         configurations.append(configuration)
@@ -367,12 +369,16 @@ class ModeManager: ObservableObject {
         }
 
         let previousEnabledConfigIds = enabledConfigurationIds
+        let previousDefaultId = configurations.first(where: \.isDefault)?.id
         var configuration = updatedConfiguration
         if configuration.isDefault {
             for configurationIndex in configurations.indices {
                 configurations[configurationIndex].isDefault = false
             }
             configuration.isEnabled = true
+            if previousDefaultId != configuration.id {
+                forgetLastChosenConfiguration()
+            }
         }
 
         configurations[index] = configuration
@@ -443,6 +449,9 @@ class ModeManager: ObservableObject {
         }
 
         let previousEnabledConfigIds = enabledConfigurationIds
+        if !configurations[targetIndex].isDefault {
+            forgetLastChosenConfiguration()
+        }
 
         for index in configurations.indices {
             configurations[index].isDefault = false
@@ -631,6 +640,31 @@ class ModeManager: ObservableObject {
         }
         UserDefaults.standard.set(config?.id.uuidString, forKey: activeConfigIdKey)
         self.objectWillChange.send()
+    }
+
+    /// Switches to a mode the user picked, and starts later recordings in it too.
+    func chooseConfiguration(_ config: ModeConfig) {
+        setActiveConfiguration(config)
+        UserDefaults.standard.set(config.id.uuidString, forKey: lastChosenConfigIdKey)
+    }
+
+    /// The mode the user last picked, while it is still enabled.
+    var lastChosenConfiguration: ModeConfig? {
+        guard let idString = UserDefaults.standard.string(forKey: lastChosenConfigIdKey),
+            let id = UUID(uuidString: idString)
+        else { return nil }
+        return enabledConfigurations.first { $0.id == id }
+    }
+
+    /// The mode a recording starts in when no app or website has its own: the one the user last
+    /// picked, else the default.
+    var recordingStartConfiguration: ModeConfig? {
+        lastChosenConfiguration ?? getDefaultConfiguration()
+    }
+
+    /// Making another mode the default starts recordings in it again.
+    private func forgetLastChosenConfiguration() {
+        UserDefaults.standard.removeObject(forKey: lastChosenConfigIdKey)
     }
 
     func updateCurrentEffectiveConfiguration(_ update: (inout ModeConfig) -> Void) {

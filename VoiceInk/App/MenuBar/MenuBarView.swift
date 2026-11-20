@@ -53,7 +53,7 @@ struct MenuBarView: View {
             Menu {
                 ForEach(modeManager.enabledConfigurations) { config in
                     Button {
-                        modeManager.setActiveConfiguration(config)
+                        modeManager.chooseConfiguration(config)
                     } label: {
                         let isActive = modeManager.currentEffectiveConfiguration?.id == config.id
                         Text(isActive ? "\(config.name)  ✓" : config.name)

@@ -93,7 +93,7 @@ struct DefaultModeIndicator: View {
                 .strokeBorder(AppTheme.Border.control, lineWidth: 0.5)
         }
         .contentShape(Capsule())
-        .help("Default mode is used when no app or website matches")
+        .help("Recordings start in the default mode until you pick another, when no app or website matches")
     }
 }
 

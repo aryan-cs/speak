@@ -50,7 +50,7 @@ struct ModePopover: View {
                                     if let onSelect {
                                         onSelect(config)
                                     } else {
-                                        modeManager.setActiveConfiguration(config)
+                                        modeManager.chooseConfiguration(config)
                                     }
                                 }
                             )

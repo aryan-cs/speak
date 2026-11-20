@@ -619,7 +619,7 @@ struct ModeConfigFormView: View {
                 Toggle(isOn: $draft.isDefault) {
                     HStack(spacing: 6) {
                         Text("Set as default")
-                        InfoTip("Default mode is used when no specific app or website matches are found.")
+                        InfoTip("Recordings start in the default mode until you pick another mode, when no specific app or website matches.")
                     }
                 }
             }

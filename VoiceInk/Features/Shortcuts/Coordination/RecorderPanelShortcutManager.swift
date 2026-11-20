@@ -235,7 +235,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
         guard modes.count > 1 else { return }
 
         let currentIndex = modes.firstIndex { $0.id == modeManager.currentEffectiveConfiguration?.id } ?? -1
-        modeManager.setActiveConfiguration(modes[(currentIndex + 1) % modes.count])
+        modeManager.chooseConfiguration(modes[(currentIndex + 1) % modes.count])
         modeManager.announceActiveMode()
     }
 
@@ -248,7 +248,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
         guard index < availableConfigurations.count else { return }
 
         let selectedConfig = availableConfigurations[index]
-        modeManager.setActiveConfiguration(selectedConfig)
+        modeManager.chooseConfiguration(selectedConfig)
         modeManager.announceActiveMode()
     }
 
